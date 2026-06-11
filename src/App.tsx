@@ -43,6 +43,7 @@ export default function App() {
   const [budgetLimit, setBudgetLimit] = useState<number>(1200);
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
 
   // Auto-select today's day if it exists in the itinerary
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function App() {
   // Load state on mount
   useEffect(() => {
     async function loadInitialState() {
+      setSyncStatus('syncing');
       // 1. Try server first
       const serverState = await fetchServerState();
       
@@ -95,6 +97,7 @@ export default function App() {
         
         // Update local too
         saveLocalState(serverState.friends, serverState.days, serverState.expenses, serverState.currentUserId, serverState.currency, serverState.budgetLimit);
+        setSyncStatus('synced');
       } else {
         // 2. Local fallback
         const local = getLocalSavedState();
@@ -107,7 +110,14 @@ export default function App() {
         
         // 3. If local has data but server doesn't, sync local to server (initial upload)
         if (local.friends.length > 0) {
-          syncWithServer(local as SavedState);
+          try {
+            await syncWithServer(local as SavedState);
+            setSyncStatus('synced');
+          } catch (e) {
+            setSyncStatus('error');
+          }
+        } else {
+          setSyncStatus('local');
         }
       }
     }
@@ -135,14 +145,20 @@ export default function App() {
     saveLocalState(updatedFriends, updatedDays, updatedExpenses, updatedUserId, updatedCurrency, updatedBudgetLimit);
     
     // Sync with server
-    syncWithServer({
-      friends: updatedFriends,
-      days: updatedDays,
-      expenses: updatedExpenses,
-      currentUserId: updatedUserId,
-      currency: updatedCurrency,
-      budgetLimit: updatedBudgetLimit
-    });
+    setSyncStatus('syncing');
+    try {
+      await syncWithServer({
+        friends: updatedFriends,
+        days: updatedDays,
+        expenses: updatedExpenses,
+        currentUserId: updatedUserId,
+        currency: updatedCurrency,
+        budgetLimit: updatedBudgetLimit
+      });
+      setSyncStatus('synced');
+    } catch (e) {
+      setSyncStatus('error');
+    }
   };
 
   // Add a brand new sequentially numbered day
@@ -374,6 +390,7 @@ export default function App() {
         budgetLimit={budgetLimit}
         onBudgetLimitChange={(limit) => updateStateAndSave(friends, days, expenses, currentUserId, currency, limit)}
         isOffline={isOffline}
+        syncStatus={syncStatus}
         onAddFriend={handleAddFriend}
         onDeleteFriend={handleDeleteFriend}
       />

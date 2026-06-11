@@ -4,8 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { Friend, Expense, Currency, CURRENCY_SYMBOLS } from '../types';
-import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil } from 'lucide-react';
+import { Friend, Expense, Currency, CURRENCY_SYMBOLS, SyncStatus } from '../types';
+import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import Avatar from './Avatar';
 
 interface TravelHeaderProps {
@@ -18,6 +18,7 @@ interface TravelHeaderProps {
   budgetLimit: number;
   onBudgetLimitChange: (limit: number) => void;
   isOffline: boolean;
+  syncStatus?: SyncStatus;
   onAddFriend?: (name: string, emoji: string, color?: string) => void;
   onDeleteFriend?: (id: string) => void;
 }
@@ -32,6 +33,7 @@ export default function TravelHeader({
   budgetLimit,
   onBudgetLimitChange,
   isOffline,
+  syncStatus = 'local',
   onAddFriend,
   onDeleteFriend,
 }: TravelHeaderProps) {
@@ -144,6 +146,30 @@ export default function TravelHeader({
             <span className="font-bold font-display tracking-tight text-lg text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
               Viaje Familiar
             </span>
+            {syncStatus === 'synced' && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-400/30 rounded-md text-[8px] font-black uppercase text-emerald-300">
+                <Check className="w-2.5 h-2.5" />
+                Nube Sincronizada
+              </div>
+            )}
+            {syncStatus === 'syncing' && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-sky-500/20 border border-sky-400/30 rounded-md text-[8px] font-black uppercase text-sky-300 animate-pulse">
+                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                Sincronizando...
+              </div>
+            )}
+            {syncStatus === 'error' && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/20 border border-rose-400/30 rounded-md text-[8px] font-black uppercase text-rose-300">
+                <AlertCircle className="w-2.5 h-2.5" />
+                Error de Red
+              </div>
+            )}
+            {syncStatus === 'local' && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-500/20 border border-slate-400/30 rounded-md text-[8px] font-black uppercase text-slate-300">
+                <CloudOff className="w-2.5 h-2.5" />
+                Solo Local
+              </div>
+            )}
           </div>
           <span className="text-[10px] text-emerald-100/90 block drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] max-w-xs md:max-w-md lg:max-w-xl leading-relaxed whitespace-normal italic">
             "Dentro de veinte años estarás más decepcionado por las cosas que no hiciste que por las que hiciste"

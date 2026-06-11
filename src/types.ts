@@ -66,3 +66,5 @@ export interface Debt {
   toId: string;
   amount: number;
 }
+
+export type SyncStatus = 'synced' | 'syncing' | 'error' | 'local';

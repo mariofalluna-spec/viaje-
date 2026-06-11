@@ -15,8 +15,9 @@ export const getDb = () => {
     try {
       console.log('[DB] Initializing database client...');
       const client = postgres(connectionString, {
-        ssl: 'allow', // Supabase often requires SSL
-        connect_timeout: 10
+        ssl: 'require', // Supabase requires SSL
+        connect_timeout: 10,
+        prepare: false // Recommended for Supabase/PGBouncer
       });
       dbInstance = drizzle(client, { schema });
     } catch (err) {

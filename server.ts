@@ -86,9 +86,13 @@ app.get("/api/state", async (req, res) => {
       expenses: expensesWithSplits,
       config: configMap
     });
-  } catch (error) {
-    console.error("Error fetching state:", error);
-    res.status(500).json({ error: "Failed to fetch state" });
+  } catch (error: any) {
+    console.error("[API] Error fetching state:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch state", 
+      detail: error.message,
+      code: error.code // PG error code
+    });
   }
 });
 
@@ -220,9 +224,13 @@ app.post("/api/sync", async (req, res) => {
     }
 
     res.json({ status: "ok" });
-  } catch (error) {
-    console.error("Error syncing state:", error);
-    res.status(500).json({ error: "Failed to sync state" });
+  } catch (error: any) {
+    console.error("[API] Error syncing state:", error);
+    res.status(500).json({ 
+      error: "Failed to sync state", 
+      detail: error.message,
+      code: error.code 
+    });
   }
 });
 
