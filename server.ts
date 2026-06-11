@@ -19,6 +19,8 @@ app.use(express.json());
 const apiKey = process.env.GEMINI_API_KEY;
 let aiClient: GoogleGenAI | null = null;
 
+export default app;
+
 function getGeminiClient() {
   if (!aiClient) {
     if (!apiKey) {
@@ -309,6 +311,8 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error("Fallo al inicializar el servidor Express:", err);
-});
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  startServer().catch((err) => {
+    console.error("Fallo al inicializar el servidor Express:", err);
+  });
+}
