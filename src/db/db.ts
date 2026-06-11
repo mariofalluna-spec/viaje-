@@ -8,10 +8,21 @@ export const getDb = () => {
   if (!dbInstance) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is required');
+      console.error('CRITICAL: DATABASE_URL is missing from environment variables.');
+      throw new Error('DATABASE_URL environment variable is required. Please add it to your project settings.');
     }
-    const client = postgres(connectionString);
-    dbInstance = drizzle(client, { schema });
+    
+    try {
+      console.log('[DB] Initializing database client...');
+      const client = postgres(connectionString, {
+        ssl: 'allow', // Supabase often requires SSL
+        connect_timeout: 10
+      });
+      dbInstance = drizzle(client, { schema });
+    } catch (err) {
+      console.error('[DB] Failed to initialize Postgres client:', err);
+      throw err;
+    }
   }
   return dbInstance;
 };

@@ -40,8 +40,24 @@ function getGeminiClient() {
 
 // API Route for Nearby Place Recommendations
 // API Route for Nearby Place Recommendations
+app.get("/api/db-check", async (req, res) => {
+  try {
+    const db = getDb();
+    const result = await db.execute(schema.friends.id); // Simple probe
+    res.json({ status: "connected", message: "Database is reachable" });
+  } catch (error: any) {
+    console.error("Database connection check failed:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Database connection failed", 
+      detail: error.message 
+    });
+  }
+});
+
 app.get("/api/state", async (req, res) => {
   try {
+    console.log("[API] Fetching state from DB...");
     const db = getDb();
     const allFriends = await db.query.friends.findMany();
     const allDays = await db.query.tripDays.findMany();
@@ -50,7 +66,7 @@ app.get("/api/state", async (req, res) => {
     const allSplits = await db.query.expenseSplits.findMany();
     const allConfig = await db.query.config.findMany();
 
-    // Reconstruct nested structures
+    console.log(`[API] Found ${allFriends.length} friends, ${allExpenses.length} expenses.`);
     const daysWithPlaces = allDays.map(day => ({
       ...day,
       touristPlaces: allPlaces.filter(p => p.tripDayId === day.id)
@@ -78,8 +94,11 @@ app.get("/api/state", async (req, res) => {
 
 app.post("/api/sync", async (req, res) => {
   try {
+    console.log("[API] Syncing state requested...");
     const { friends, days, expenses: incomingExpenses, config } = req.body;
     const db = getDb();
+
+    console.log(`[API] Syncing: ${friends?.length || 0} friends, ${incomingExpenses?.length || 0} expenses.`);
 
     // Direct synchronization for simplicity in this prototype
     // For a real app, granular updates are better, but here we can use upserts
