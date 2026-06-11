@@ -1,0 +1,6 @@
+{
+  "name": "Viaje Familiar Brasil",
+  "description": "Itinerario y control de gastos para tu viaje a Brasil. Con persistencia en la nube (vía PostgreSQL) para sincronización entre dispositivos, IA para lugares cercanos y gestión de deudas compartidas.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
