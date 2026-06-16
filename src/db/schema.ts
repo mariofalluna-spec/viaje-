@@ -1,5 +1,12 @@
 import { pgTable, text, integer, boolean, doublePrecision, timestamp, uuid, primaryKey } from 'drizzle-orm/pg-core';
 
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  username: text('username').unique().notNull(),
+  password: text('password').notNull(),
+  name: text('name').notNull(),
+});
+
 export const friends = pgTable('friends', {
   id: text('id').primaryKey(), // Using text to match existing u_1, u_2 etc or uuid
   name: text('name').notNull(),

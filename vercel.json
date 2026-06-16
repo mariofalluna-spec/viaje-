@@ -1,10 +1,10 @@
-# Supabase Connectivity
-# IMPORTANTE: Para que funcione, obtén el Connection String (URI) en Supabase -> Settings -> Database
-DATABASE_URL=postgresql://postgres:efrain123flcon@db.nypwmtupwkdayjhqnuqy.supabase.co:5432/postgres
-
-# Credenciales de API (REST/SDK)
-VITE_SUPABASE_URL=https://nypwmtupwkdayjhqnuqy.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cHdtdHVwd2tkYXlqaHFudXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NDE1MTEsImV4cCI6MjA5NzIxNzUxMX0.PlsYUt0nhjxvhrGZiukspxmiPsD6brxCO64K9O17CME
-
-# Gemini API Key (Server-side only)
-GEMINI_API_KEY=
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "framework": "vite"
+}

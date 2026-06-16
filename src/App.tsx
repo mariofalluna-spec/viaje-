@@ -14,6 +14,7 @@ import SettleUpPanel from './components/SettleUpPanel';
 import DashboardCharts from './components/DashboardCharts';
 import ExpenseModal from './components/ExpenseModal';
 import EmergencyDocumentsPanel from './components/EmergencyDocumentsPanel';
+import Login from './components/Login';
 import { 
   Compass, 
   Wallet, 
@@ -44,6 +45,9 @@ export default function App() {
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('trip_auth') === 'true';
+  });
 
   // Auto-select today's day if it exists in the itinerary
   useEffect(() => {
@@ -133,7 +137,24 @@ export default function App() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoggedIn]);
+
+  const handleLogin = (user: string, pass: string) => {
+    // Para prototipo, permitimos cualquier acceso pero lo guardamos
+    localStorage.setItem('trip_auth', 'true');
+    localStorage.setItem('trip_user', user);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('trip_auth');
+    localStorage.removeItem('trip_user');
+    setIsLoggedIn(false);
+    // Limpiar estados locales para evitar residuo visual de otro usuario
+    setFriends([]);
+    setDays([]);
+    setExpenses([]);
+  };
 
   // Central state update + safe localStorage & Server syncing
   const updateStateAndSave = async (
@@ -389,6 +410,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none antialiased">
+      <AnimatePresence>
+        {!isLoggedIn && (
+          <Login onLogin={handleLogin} />
+        )}
+      </AnimatePresence>
+
       {/* Top Travel Header with simulated agent metrics */}
       <TravelHeader
         friends={friends}
@@ -403,6 +430,7 @@ export default function App() {
         syncStatus={syncStatus}
         onAddFriend={handleAddFriend}
         onDeleteFriend={handleDeleteFriend}
+        onLogout={handleLogout}
       />
 
       {/* Main app panel */}

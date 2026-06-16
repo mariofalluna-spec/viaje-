@@ -1,29 +1,20 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-let dbInstance: any = null;
+# Run and deploy your AI Studio app
 
-export const getDb = () => {
-  if (!dbInstance) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      console.error('CRITICAL: DATABASE_URL is missing from environment variables.');
-      throw new Error('DATABASE_URL environment variable is required. Please add it to your project settings.');
-    }
-    
-    try {
-      console.log('[DB] Initializing database client...');
-      const client = postgres(connectionString, {
-        ssl: 'require', // Supabase requires SSL
-        connect_timeout: 10,
-        prepare: false // Recommended for Supabase/PGBouncer
-      });
-      dbInstance = drizzle(client, { schema });
-    } catch (err) {
-      console.error('[DB] Failed to initialize Postgres client:', err);
-      throw err;
-    }
-  }
-  return dbInstance;
-};
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/7020b0a6-3a82-4a1a-8d82-af4b78fa0ba5
+
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

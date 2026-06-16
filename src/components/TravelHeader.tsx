@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Friend, Expense, Currency, CURRENCY_SYMBOLS, SyncStatus } from '../types';
-import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle, LogOut } from 'lucide-react';
 import Avatar from './Avatar';
 
 interface TravelHeaderProps {
@@ -21,6 +21,7 @@ interface TravelHeaderProps {
   syncStatus?: SyncStatus;
   onAddFriend?: (name: string, emoji: string, color?: string) => void;
   onDeleteFriend?: (id: string) => void;
+  onLogout?: () => void;
 }
 
 export default function TravelHeader({
@@ -36,6 +37,7 @@ export default function TravelHeader({
   syncStatus = 'local',
   onAddFriend,
   onDeleteFriend,
+  onLogout,
 }: TravelHeaderProps) {
   const currentUserObj = friends.find((f) => f.id === currentUserId) || friends[0];
 
@@ -78,7 +80,16 @@ export default function TravelHeader({
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] z-0 pointer-events-none" />
 
       {/* Global Spotify Control - Absolute Corner */}
-      <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[100]">
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] flex gap-3">
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center bg-rose-600/20 border-2 border-rose-500/30 text-rose-100 hover:bg-rose-600/80 hover:border-white hover:scale-110 transition-all shadow-lg backdrop-blur-xl group cursor-pointer"
+            title="Cerrar Sesión"
+          >
+            <LogOut className="w-5 h-5 md:w-6 h-6 group-hover:rotate-12 transition-transform" />
+          </button>
+        )}
         <div className="relative group">
           <button
             onClick={() => setShowSpotify(!showSpotify)}
