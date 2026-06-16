@@ -84,10 +84,11 @@ export default function App() {
   useEffect(() => {
     async function loadInitialState() {
       setSyncStatus('syncing');
-      // 1. Try server first
+      console.log("[App] Intentando cargar estado desde el servidor...");
       const serverState = await fetchServerState();
       
-      if (serverState && serverState.friends.length > 0) {
+      if (serverState && serverState.friends && serverState.friends.length > 0) {
+        console.log("[App] Estado cargado con éxito desde la nube.");
         setFriends(serverState.friends);
         setDays(serverState.days);
         setExpenses(serverState.expenses);
@@ -95,11 +96,10 @@ export default function App() {
         setCurrency(serverState.currency);
         setBudgetLimit(serverState.budgetLimit);
         
-        // Update local too
         saveLocalState(serverState.friends, serverState.days, serverState.expenses, serverState.currentUserId, serverState.currency, serverState.budgetLimit);
         setSyncStatus('synced');
       } else {
-        // 2. Local fallback
+        console.log("[App] Nube vacía o inaccesible, usando datos locales...");
         const local = getLocalSavedState();
         setFriends(local.friends);
         setDays(local.days);
@@ -108,12 +108,13 @@ export default function App() {
         setCurrency(local.currency);
         setBudgetLimit(local.budgetLimit);
         
-        // 3. If local has data but server doesn't, sync local to server (initial upload)
         if (local.friends.length > 0) {
           try {
+            console.log("[App] Sincronizando datos locales iniciales hacia la nube...");
             await syncWithServer(local as SavedState);
             setSyncStatus('synced');
           } catch (e) {
+            console.error("[App] Fallo en sincronización inicial:", e);
             setSyncStatus('error');
           }
         } else {
@@ -123,6 +124,15 @@ export default function App() {
     }
     
     loadInitialState();
+
+    // "Tiempo Real": Polling cada 30 segundos si la ventana tiene foco
+    const interval = setInterval(() => {
+      if (document.hasFocus()) {
+        loadInitialState();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Central state update + safe localStorage & Server syncing

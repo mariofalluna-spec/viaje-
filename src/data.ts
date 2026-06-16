@@ -197,23 +197,25 @@ export async function fetchServerState(): Promise<SavedState | null> {
 }
 
 export async function syncWithServer(state: SavedState) {
-  try {
-    await fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        friends: state.friends,
-        days: state.days,
-        expenses: state.expenses,
-        config: {
-          currentUserId: state.currentUserId,
-          currency: state.currency,
-          budgetLimit: state.budgetLimit
-        }
-      })
-    });
-  } catch (e) {
-    console.error('Error syncing with server:', e);
+  const response = await fetch('/api/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      friends: state.friends,
+      days: state.days,
+      expenses: state.expenses,
+      config: {
+        currentUserId: state.currentUserId,
+        currency: state.currency,
+        budgetLimit: state.budgetLimit
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Error syncing with server:', errorData);
+    throw new Error(errorData.error || 'Failed to sync with server');
   }
 }
 

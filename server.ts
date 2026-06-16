@@ -5,7 +5,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { getDb } from "./src/db/db";
 import * as schema from "./src/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 // Load environment variables
 dotenv.config();
@@ -40,17 +40,24 @@ function getGeminiClient() {
 
 // API Route for Nearby Place Recommendations
 // API Route for Nearby Place Recommendations
+// API Route for Database Connection Check
 app.get("/api/db-check", async (req, res) => {
   try {
     const db = getDb();
-    const result = await db.execute(schema.friends.id); // Simple probe
-    res.json({ status: "connected", message: "Database is reachable" });
+    console.log("[DB] Testing connection with 'SELECT 1'...");
+    const result = await db.execute(sql`SELECT 1`); 
+    res.json({ 
+      status: "connected", 
+      message: "Database is reachable from server",
+      timestamp: new Date().toISOString()
+    });
   } catch (error: any) {
-    console.error("Database connection check failed:", error);
+    console.error("[DB] Connection check failed:", error);
     res.status(500).json({ 
       status: "error", 
-      message: "Database connection failed", 
-      detail: error.message 
+      message: "Server cannot reach the database", 
+      detail: error.message,
+      code: error.code
     });
   }
 });
