@@ -3,9 +3,7 @@ import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { getDb } from "./src/db/db";
-import * as schema from "./src/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { supabaseClient } from "./src/db/supabaseClient";
 
 // Load environment variables
 dotenv.config();
@@ -43,19 +41,17 @@ function getGeminiClient() {
 // API Route for Database Connection Check
 app.get("/api/db-check", async (req, res) => {
   try {
-    const db = getDb();
-    console.log("[DB] Testing connection with 'SELECT 1'...");
-    const result = await db.execute(sql`SELECT 1`); 
+    const result = await supabaseClient.dbCheck();
     res.json({ 
       status: "connected", 
-      message: "Database is reachable from server",
+      message: "Conectado exitosamente con Supabase (REST IPv4)",
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
-    console.error("[DB] Connection check failed:", error);
+    console.error("[DB Check] REST Connection failed:", error);
     res.status(500).json({ 
       status: "error", 
-      message: "Server cannot reach the database", 
+      message: "No se pudo alcanzar la base de datos a través de REST", 
       detail: error.message,
       code: error.code
     });
@@ -72,12 +68,7 @@ app.post("/api/login", async (req, res) => {
 
   try {
     console.log(`[AUTH] Login attempt for user: ${username}`);
-    const db = getDb();
-    
-    // Check if table exists by doing a raw query or just catch the error
-    const user = await db.query.users.findFirst({
-      where: (users: any, { eq }: any) => eq(users.username, username)
-    });
+    const user = await supabaseClient.getUser(username);
 
     if (user && user.password === password) {
       console.log(`[AUTH] Login successful for: ${username}`);
@@ -92,196 +83,61 @@ app.post("/api/login", async (req, res) => {
   } catch (error: any) {
     console.error("[AUTH] Login error detailed:", error);
     
-    // Special handling for missing table or connection issues
-    if (error.message?.includes('does not exist')) {
+    if (error.message?.includes("42501")) {
       return res.status(500).json({ 
         status: "error", 
-        message: "La base de datos no está inicializada. Ejecuta el SQL en Supabase." 
+        message: "Seguridad RLS activa en Supabase. Debes ejecutar las sentencias SQL para desactivarla." 
       });
     }
     
     res.status(500).json({ 
       status: "error", 
-      message: "Error de conexión con la base de datos. Verifica tus credenciales." 
+      message: "Error de conexión con la base de datos REST: " + error.message 
     });
   }
 });
 
 app.get("/api/state", async (req, res) => {
   try {
-    console.log("[API] Fetching state from DB...");
-    const db = getDb();
-    const allFriends = await db.query.friends.findMany();
-    const allDays = await db.query.tripDays.findMany();
-    const allPlaces = await db.query.touristPlaces.findMany();
-    const allExpenses = await db.query.expenses.findMany();
-    const allSplits = await db.query.expenseSplits.findMany();
-    const allConfig = await db.query.config.findMany();
-
-    console.log(`[API] Found ${allFriends.length} friends, ${allExpenses.length} expenses.`);
-    const daysWithPlaces = allDays.map(day => ({
-      ...day,
-      touristPlaces: allPlaces.filter(p => p.tripDayId === day.id)
-    }));
-
-    const expensesWithSplits = allExpenses.map(exp => ({
-      ...exp,
-      splits: allSplits.filter(s => s.expenseId === exp.id).map(s => ({ friendId: s.friendId, amount: s.amount }))
-    }));
-
-    const configMap: Record<string, string> = {};
-    allConfig.forEach(c => configMap[c.key] = c.value);
-
-    res.json({
-      friends: allFriends,
-      days: daysWithPlaces,
-      expenses: expensesWithSplits,
-      config: configMap
-    });
+    console.log("[API] Fetching state from Supabase REST...");
+    const state = await supabaseClient.getState();
+    res.json(state);
   } catch (error: any) {
     console.error("[API] Error fetching state:", error);
+    
+    if (error.message?.includes("42501")) {
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Seguridad RLS de Supabase activa. Ejecuta los comandos SQL para desactivarla y permitir lectura." 
+      });
+    }
+    
     res.status(500).json({ 
       error: "Failed to fetch state", 
-      detail: error.message,
-      code: error.code // PG error code
+      detail: error.message
     });
   }
 });
 
 app.post("/api/sync", async (req, res) => {
   try {
-    console.log("[API] Syncing state requested...");
-    const { friends, days, expenses: incomingExpenses, config } = req.body;
-    const db = getDb();
-
-    console.log(`[API] Syncing: ${friends?.length || 0} friends, ${incomingExpenses?.length || 0} expenses.`);
-
-    // Direct synchronization for simplicity in this prototype
-    // For a real app, granular updates are better, but here we can use upserts
-    
-    // Friends
-    if (friends) {
-      for (const f of friends) {
-        await db.insert(schema.friends).values({
-          id: f.id,
-          name: f.name,
-          avatarColor: f.avatarColor,
-          avatarUrl: f.avatarUrl,
-          avatarEmoji: f.avatarEmoji,
-          checkInCode: f.checkInCode
-        }).onConflictDoUpdate({
-          target: schema.friends.id,
-          set: {
-            name: f.name,
-            avatarColor: f.avatarColor,
-            avatarUrl: f.avatarUrl,
-            avatarEmoji: f.avatarEmoji,
-            checkInCode: f.checkInCode
-          }
-        });
-      }
-    }
-
-    // Days & Places
-    if (days) {
-      for (const d of days) {
-        await db.insert(schema.tripDays).values({
-          id: d.id,
-          dayNumber: d.dayNumber,
-          date: d.date
-        }).onConflictDoUpdate({
-          target: schema.tripDays.id,
-          set: { dayNumber: d.dayNumber, date: d.date }
-        });
-
-        if (d.touristPlaces) {
-          for (const p of d.touristPlaces) {
-            await db.insert(schema.touristPlaces).values({
-              id: p.id,
-              tripDayId: d.id,
-              name: p.name,
-              description: p.description,
-              timeOfDay: p.timeOfDay,
-              estimatedCost: p.estimatedCost,
-              isVisited: p.isVisited,
-              locationName: p.locationName,
-              locationUrl: p.locationUrl
-            }).onConflictDoUpdate({
-              target: schema.touristPlaces.id,
-              set: {
-                name: p.name,
-                description: p.description,
-                timeOfDay: p.timeOfDay,
-                estimatedCost: p.estimatedCost,
-                isVisited: p.isVisited,
-                locationName: p.locationName,
-                locationUrl: p.locationUrl
-              }
-            });
-          }
-        }
-      }
-    }
-
-    // Expenses & Splits
-    if (incomingExpenses) {
-      for (const e of incomingExpenses) {
-        await db.insert(schema.expenses).values({
-          id: e.id,
-          tripDayId: e.tripDayId === 'general' ? null : e.tripDayId,
-          description: e.description,
-          amount: e.amount,
-          payerId: e.payerId,
-          category: e.category,
-          isSettlement: e.isSettlement,
-          notes: e.notes
-        }).onConflictDoUpdate({
-          target: schema.expenses.id,
-          set: {
-            tripDayId: e.tripDayId === 'general' ? null : e.tripDayId,
-            description: e.description,
-            amount: e.amount,
-            payerId: e.payerId,
-            category: e.category,
-            isSettlement: e.isSettlement,
-            notes: e.notes
-          }
-        });
-
-        if (e.splits) {
-          // Simplest is to clear and re-insert splits for this expense
-          await db.delete(schema.expenseSplits).where(eq(schema.expenseSplits.expenseId, e.id));
-          for (const s of e.splits) {
-            await db.insert(schema.expenseSplits).values({
-              expenseId: e.id,
-              friendId: s.friendId,
-              amount: s.amount
-            });
-          }
-        }
-      }
-    }
-
-    // Config
-    if (config) {
-      for (const [key, value] of Object.entries(config)) {
-        await db.insert(schema.config).values({
-          key,
-          value: String(value)
-        }).onConflictDoUpdate({
-          target: schema.config.key,
-          set: { value: String(value) }
-        });
-      }
-    }
-
+    console.log("[API] Syncing state via Supabase REST...");
+    const { friends, days, expenses, config } = req.body;
+    await supabaseClient.syncState({ friends, days, expenses, config });
     res.json({ status: "ok" });
   } catch (error: any) {
     console.error("[API] Error syncing state:", error);
+    
+    if (error.message?.includes("42501")) {
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Seguridad RLS de Supabase activa. Ejecuta los comandos SQL para desactivarla y permitir escritura." 
+      });
+    }
+    
     res.status(500).json({ 
       error: "Failed to sync state", 
-      detail: error.message,
-      code: error.code 
+      detail: error.message
     });
   }
 });
@@ -289,33 +145,34 @@ app.post("/api/sync", async (req, res) => {
 // Deletions
 app.delete("/api/expenses/:id", async (req, res) => {
   try {
-    const db = getDb();
-    await db.delete(schema.expenses).where(eq(schema.expenses.id, req.params.id));
+    await supabaseClient.deleteExpense(req.params.id);
     res.json({ status: "ok" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to delete expense" });
+  } catch (error: any) {
+    console.error("[API] Error deleting expense:", error);
+    res.status(500).json({ error: "Failed to delete expense", detail: error.message });
   }
 });
 
 app.delete("/api/places/:id", async (req, res) => {
   try {
-    const db = getDb();
-    await db.delete(schema.touristPlaces).where(eq(schema.touristPlaces.id, req.params.id));
+    await supabaseClient.deletePlace(req.params.id);
     res.json({ status: "ok" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to delete place" });
+  } catch (error: any) {
+    console.error("[API] Error deleting place:", error);
+    res.status(500).json({ error: "Failed to delete place", detail: error.message });
   }
 });
 
 app.delete("/api/friends/:id", async (req, res) => {
   try {
-    const db = getDb();
-    await db.delete(schema.friends).where(eq(schema.friends.id, req.params.id));
+    await supabaseClient.deleteFriend(req.params.id);
     res.json({ status: "ok" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to delete friend" });
+  } catch (error: any) {
+    console.error("[API] Error deleting friend:", error);
+    res.status(500).json({ error: "Failed to delete friend", detail: error.message });
   }
 });
+
 
 app.post("/api/recommendations", async (req, res) => {
   try {

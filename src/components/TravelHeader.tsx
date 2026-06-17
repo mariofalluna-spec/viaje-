@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Friend, Expense, Currency, CURRENCY_SYMBOLS, SyncStatus } from '../types';
-import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle, LogOut } from 'lucide-react';
+import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle, LogOut, Pause } from 'lucide-react';
 import Avatar from './Avatar';
+import christRedeemerImg from '../assets/images/christ_the_redeemer_1781656383349.jpg';
+import { playRingtone, isRingtonePlaying, toggleRingtone } from '../utils/audioSynth';
 
 interface TravelHeaderProps {
   friends: Friend[];
@@ -57,6 +59,15 @@ export default function TravelHeader({
   const [newFriendName, setNewFriendName] = useState('');
   const [selectedColor, setSelectedColor] = useState('bg-teal-500');
   const [showSpotify, setShowSpotify] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Poll for playing state to keep UI in sync
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsPlaying(isRingtonePlaying());
+    }, 250);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCreateFriend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,16 +82,29 @@ export default function TravelHeader({
     <header 
       className="text-white min-h-[100px] py-4 px-6 sticky top-0 z-40 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-visible"
       style={{
-        backgroundImage: "linear-gradient(to right, rgba(15, 23, 42, 0.8), rgba(15, 118, 110, 0.7)), url('https://images.unsplash.com/photo-1483729558449-99ef09a8c325?auto=format&fit=crop&w=1500&q=80')",
+        backgroundImage: `linear-gradient(to right, rgba(15, 23, 42, 0.8), rgba(15, 118, 110, 0.75)), url(${christRedeemerImg})`,
         backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        backgroundPosition: 'center 35%',
       }}
     >
       {/* Semi-transparent blur overlay for excellent text contrast */}
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] z-0 pointer-events-none" />
 
-      {/* Global Spotify Control - Absolute Corner */}
-      <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] flex gap-3">
+      {/* Global Spotify & Ringtone Control - Absolute Corner */}
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] flex gap-2.5">
+        {/* Ringtone Trigger Sound Button */}
+        <button
+          onClick={() => toggleRingtone()}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center bg-yellow-400/20 border-2 border-yellow-400/30 hover:border-yellow-350 text-yellow-300 hover:bg-yellow-400/80 hover:text-emerald-950 hover:scale-110 transition-all shadow-lg backdrop-blur-xl group cursor-pointer"
+          title={isPlaying ? "Pausar Ringtone de Río 🔔" : "Sonar Ringtone de Río 🔔"}
+        >
+          {isPlaying ? (
+            <Pause className="w-5 h-5 md:w-6 h-6 animate-pulse" />
+          ) : (
+            <Music className="w-5 h-5 md:w-6 h-6 group-hover:rotate-12 transition-transform" />
+          )}
+        </button>
+
         {onLogout && (
           <button
             onClick={onLogout}

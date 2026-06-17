@@ -24,9 +24,12 @@ import {
   RefreshCw,
   Sparkles,
   Info,
-  ShieldAlert
+  ShieldAlert,
+  Sun,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import smilingChristImg from './assets/images/smiling_christ_redeemer_1781657399515.jpg';
 
 const PALETTE = [
   'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500', 
@@ -48,6 +51,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('trip_auth') === 'true';
   });
+  const [showWelcome, setShowWelcome] = useState<boolean>(false);
+  const [welcomeName, setWelcomeName] = useState<string>('');
 
   // Auto-select today's day if it exists in the itinerary
   useEffect(() => {
@@ -143,7 +148,14 @@ export default function App() {
     // Para prototipo, permitimos cualquier acceso pero lo guardamos
     localStorage.setItem('trip_auth', 'true');
     localStorage.setItem('trip_user', user);
+    setWelcomeName(user);
+    setShowWelcome(true);
     setIsLoggedIn(true);
+
+    // Automatically hide after 5.5 seconds
+    setTimeout(() => {
+      setShowWelcome(false);
+    }, 5500);
   };
 
   const handleLogout = () => {
@@ -416,6 +428,113 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {showWelcome && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[250] bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-950 flex flex-col items-center justify-center p-6 text-white overflow-hidden"
+          >
+            {/* Ambient Brazil Sun backdrop glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-yellow-400/15 rounded-full blur-[90px] pointer-events-none" />
+
+            <div className="max-w-md w-full text-center relative z-10 flex flex-col items-center gap-6">
+              
+              {/* Floating Sparkles & Festivity icons */}
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: 'spring', stiffness: 100 }}
+                className="relative group cursor-pointer"
+              >
+                {/* Glowing Aura halo */}
+                <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400 via-emerald-400 to-green-500 rounded-[32px] blur-md opacity-75 animate-pulse group-hover:opacity-100 transition-opacity" />
+                
+                {/* The smiling Christ the Redeemer statue generated image */}
+                <img 
+                  src={smilingChristImg} 
+                  alt="Cristo Redentor Sonriendo" 
+                  referrerPolicy="no-referrer"
+                  className="w-64 h-80 rounded-[24px] object-cover shadow-2xl border-4 border-white/90 relative z-10 hover:scale-[1.02] transition-transform duration-500"
+                />
+                
+                {/* Smile indicator tag or halo highlight */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-yellow-400 text-emerald-950 font-black text-[11px] uppercase rounded-full tracking-widest shadow-lg flex items-center gap-1">
+                  <span>CRISTO SONRIENDO</span>
+                  <span>😊🇧🇷</span>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="space-y-2 mt-2"
+              >
+                <div className="flex flex-col items-center justify-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🌴</span>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-emerald-300 to-green-300 uppercase">
+                      ¡Bienvenido, {welcomeName || 'Viajero'}!
+                    </h1>
+                    <span className="text-2xl">🇧🇷</span>
+                  </div>
+                  <p className="text-xs font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-1.5">
+                    <Sun className="w-3.5 h-3.5 text-yellow-300 animate-spin-slow" />
+                    Destino: Río de Janeiro
+                  </p>
+                </div>
+                <p className="text-sm text-yellow-105/90 font-medium px-4">
+                  El Cristo Redentor sonríe alegremente para recibir a toda la familia en este maravilloso viaje. ¡Que comience la samba y la aventura!
+                </p>
+              </motion.div>
+
+              {/* Fake loading/entering bar that progresses over 5s */}
+              <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mt-2 relative">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 5, ease: "linear" }}
+                  className="bg-gradient-to-r from-yellow-400 to-emerald-400 h-full rounded-full"
+                />
+              </div>
+
+              {/* Dynamic Sound Wave animation while audio is playing */}
+              <div className="flex items-center justify-center gap-1.5 h-6">
+                <span className="text-[10px] font-bold text-teal-300/80 uppercase tracking-widest">Sintonizando Ringtone de Río 🔔</span>
+                <div className="flex gap-0.5 items-end h-3">
+                  <span className="w-0.5 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                  <span className="w-0.5 h-3 bg-yellow-400 animate-pulse rounded-full" style={{ animationDelay: '0.15s' }} />
+                  <span className="w-0.5 h-1.5 bg-emerald-400 animate-pulse rounded-full" style={{ animationDelay: '0.3s' }} />
+                  <span className="w-0.5 h-3.5 bg-yellow-400 animate-pulse rounded-full" style={{ animationDelay: '0.45s' }} />
+                </div>
+              </div>
+
+              {/* Action skip button */}
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.8 }}
+                whileHover={{ opacity: 1, scale: 1.05 }}
+                onClick={() => setShowWelcome(false)}
+                className="mt-2 py-2 px-5 bg-white/10 hover:bg-white/15 border border-white/20 active:scale-95 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer text-white"
+                id="btn-skip-welcome"
+              >
+                <span>Ingresar al Tablero</span>
+                <ArrowRight className="w-4 h-4" />
+              </motion.button>
+            </div>
+            
+            {/* Visual background credit details */}
+            <div className="absolute bottom-6 text-[10px] text-white/30 tracking-widest uppercase font-black">
+              Copacabana Samba Beat • Río de Janeiro 2026
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Travel Header with simulated agent metrics */}
       <TravelHeader
         friends={friends}
@@ -538,16 +657,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
-            <button
-              id="btn-restore-defaults"
-              onClick={handleRestoreDefaults}
-              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-rose-500 transition-colors py-1.5 px-3 rounded-xl border border-dashed border-slate-200 hover:border-rose-100 bg-transparent cursor-pointer"
-              title="Restaurar viaje demo"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reiniciar Datos Prueba</span>
-            </button>
           </div>
 
           {/* Upper conditional space based on Workspace Tab Selection */}
