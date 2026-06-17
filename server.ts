@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { supabaseClient } from "./src/db/supabaseClient";
+import { supabaseClient } from "./src/db/supabaseClient.ts";
 
 // Load environment variables
 dotenv.config();
@@ -15,8 +15,6 @@ app.use(express.json());
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
 let aiClient: GoogleGenAI | null = null;
-
-export default app;
 
 function getGeminiClient() {
   if (!aiClient) {
@@ -293,3 +291,5 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
     console.error("Fallo al inicializar el servidor Express:", err);
   });
 }
+
+export default app;

@@ -225,14 +225,15 @@ export const supabaseClient = {
 
   async getState() {
     console.log("[Supabase REST] Loading full trip state...");
-    const [friends, tripDays, touristPlaces, expenses, expenseSplits, config] = await Promise.all([
-      request("friends?select=*"),
-      request("trip_days?select=*"),
-      request("tourist_places?select=*"),
-      request("expenses?select=*"),
-      request("expense_splits?select=*"),
-      request("config?select=*")
+    const results = await Promise.all([
+      request("friends?select=*").catch(e => { console.error("Error fetching friends:", e); return []; }),
+      request("trip_days?select=*").catch(e => { console.error("Error fetching trip_days:", e); return []; }),
+      request("tourist_places?select=*").catch(e => { console.error("Error fetching tourist_places:", e); return []; }),
+      request("expenses?select=*").catch(e => { console.error("Error fetching expenses:", e); return []; }),
+      request("expense_splits?select=*").catch(e => { console.error("Error fetching expense_splits:", e); return []; }),
+      request("config?select=*").catch(e => { console.error("Error fetching config:", e); return []; })
     ]);
+    const [friends, tripDays, touristPlaces, expenses, expenseSplits, config] = results;
 
     // Format matches server.ts EXPECTATIONS
     const mappedFriends = toCamelCase(friends || []);
@@ -476,11 +477,15 @@ export const supabaseClient = {
         value: String(value)
       }));
       if (serialConfig.length > 0) {
-        await request("config?on_conflict=key", {
-          method: "POST",
-          headers: { "Prefer": "resolution=merge-duplicates" },
-          body: JSON.stringify(serialConfig)
-        });
+        try {
+          await request("config?on_conflict=key", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify(serialConfig)
+          });
+        } catch (e) {
+          console.error("[Supabase REST] ERROR syncing config:", e);
+        }
       }
     }
 
