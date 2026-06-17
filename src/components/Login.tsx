@@ -26,7 +26,15 @@ export default function Login({ onLogin }: LoginProps) {
         body: JSON.stringify({ username: user, password: pass })
       });
 
-      const data = await response.json();
+      // Leer de forma segura como texto primero para evitar crasheos si el servidor responde con HTML (errores Vercel / Supabase offline)
+      const resText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(resText);
+      } catch (parseErr) {
+        console.warn("Could not parse login API response block as JSON:", parseErr);
+        throw new Error(response.status === 404 ? 'Ruta de login no encontrada (404)' : `Servidor respondió con código ${response.status}`);
+      }
 
       if (response.ok) {
         // Reproducir automáticamente el ringtone al iniciar sesión con éxito
@@ -35,8 +43,9 @@ export default function Login({ onLogin }: LoginProps) {
       } else {
         setError(data.message || 'Error de acceso');
       }
-    } catch (err) {
-      setError('No se pudo conectar con el servidor');
+    } catch (err: any) {
+      console.error("Login connection error details:", err);
+      setError('No se pudo conectar con el servidor de base de datos. Se sugiere el modo Offline.');
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +76,7 @@ export default function Login({ onLogin }: LoginProps) {
           {/* Header section with Rio vibes */}
           <div className="flex flex-col items-center mb-6">
             <div className="p-4 bg-yellow-400 text-emerald-950 rounded-2xl shadow-lg shadow-yellow-400/40 mb-3 relative group overflow-hidden">
-              <Plane className="w-8 h-8 text-emerald-950 group-hover:translate-x-1 transition-transform" />
+               <Plane className="w-8 h-8 text-emerald-950 group-hover:translate-x-1 transition-transform" />
               <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
             </div>
             <h1 className="text-3xl font-extrabold text-white tracking-tight text-center">
@@ -80,8 +89,23 @@ export default function Login({ onLogin }: LoginProps) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-xs font-bold text-center animate-shake">
-                {error}
+              <div className="p-4 bg-red-950/50 border border-red-500/40 rounded-2xl text-red-200 text-xs text-center animate-shake space-y-2.5">
+                <p className="font-bold">{error}</p>
+                <div className="border-t border-red-500/20 pt-2 flex flex-col items-center">
+                  <span className="text-[10px] text-red-300 font-medium mb-1.5 leading-relaxed">
+                    ¿Te encuentras en Río sin conexión o el servidor está inactivo? Prueba el modo local:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playRingtone();
+                      onLogin(user || 'carlos', pass || 'offline');
+                    }}
+                    className="w-full bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-350 hover:to-amber-350 text-emerald-950 font-black py-2.5 px-4 rounded-xl shadow-md transition-all uppercase tracking-wider text-[11px] active:scale-[0.97] cursor-pointer"
+                  >
+                    🌴 Entrar con Modo Offline / Demo
+                  </button>
+                </div>
               </div>
             )}
 
@@ -126,6 +150,20 @@ export default function Login({ onLogin }: LoginProps) {
               {!isLoading && <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform text-yellow-300" />}
             </button>
           </form>
+        </div>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              playRingtone();
+              onLogin(user || 'carlos', pass || 'offline');
+            }}
+            className="text-xs text-yellow-300/80 hover:text-yellow-300 underline font-bold transition-all tracking-wider uppercase cursor-pointer"
+            id="btn-login-offline-direct"
+          >
+            Entrar en Modo Offline (Demo) 🌴
+          </button>
         </div>
 
         <div className="mt-6 text-center">
