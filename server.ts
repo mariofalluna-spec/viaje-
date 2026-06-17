@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { supabaseClient } from "./src/db/supabaseClient";
 
@@ -39,7 +38,7 @@ function getGeminiClient() {
 // API Route for Nearby Place Recommendations
 // API Route for Nearby Place Recommendations
 // API Route for Database Connection Check
-app.get("/api/db-check", async (req, res) => {
+app.get(["/api/db-check", "/db-check"], async (req, res) => {
   try {
     const result = await supabaseClient.dbCheck();
     res.json({ 
@@ -59,7 +58,7 @@ app.get("/api/db-check", async (req, res) => {
 });
 
 // REAL LOGIN API
-app.post("/api/login", async (req, res) => {
+app.post(["/api/login", "/login"], async (req, res) => {
   const { username, password } = req.body;
   
   if (!username || !password) {
@@ -97,7 +96,7 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-app.get("/api/state", async (req, res) => {
+app.get(["/api/state", "/state"], async (req, res) => {
   try {
     console.log("[API] Fetching state from Supabase REST...");
     const state = await supabaseClient.getState();
@@ -119,7 +118,7 @@ app.get("/api/state", async (req, res) => {
   }
 });
 
-app.post("/api/sync", async (req, res) => {
+app.post(["/api/sync", "/sync"], async (req, res) => {
   try {
     console.log("[API] Syncing state via Supabase REST...");
     const { friends, days, expenses, config } = req.body;
@@ -143,7 +142,7 @@ app.post("/api/sync", async (req, res) => {
 });
 
 // Deletions
-app.delete("/api/expenses/:id", async (req, res) => {
+app.delete(["/api/expenses/:id", "/expenses/:id"], async (req, res) => {
   try {
     await supabaseClient.deleteExpense(req.params.id);
     res.json({ status: "ok" });
@@ -153,7 +152,7 @@ app.delete("/api/expenses/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/places/:id", async (req, res) => {
+app.delete(["/api/places/:id", "/places/:id"], async (req, res) => {
   try {
     await supabaseClient.deletePlace(req.params.id);
     res.json({ status: "ok" });
@@ -163,7 +162,7 @@ app.delete("/api/places/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/friends/:id", async (req, res) => {
+app.delete(["/api/friends/:id", "/friends/:id"], async (req, res) => {
   try {
     await supabaseClient.deleteFriend(req.params.id);
     res.json({ status: "ok" });
@@ -174,7 +173,7 @@ app.delete("/api/friends/:id", async (req, res) => {
 });
 
 
-app.post("/api/recommendations", async (req, res) => {
+app.post(["/api/recommendations", "/recommendations"], async (req, res) => {
   try {
     const { placeName, locationName, userLocation } = req.body;
     
@@ -229,6 +228,7 @@ No incluyas introducciones dramáticas, ni explicaciones adicionales fuera del a
 // Wrap server startup and middleware registration in an async function to avoid top-level await in CJS output
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
