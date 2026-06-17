@@ -29,7 +29,15 @@ export default function Login({ onLogin }: LoginProps) {
         body: JSON.stringify({ username: user, password: pass })
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("[Login API Response Error]:", text);
+        throw new Error(`Código ${response.status}: El servidor no devolvió JSON.`);
+      }
 
       if (response.ok) {
         // Reproducir automáticamente el ringtone al iniciar sesión con éxito
@@ -38,8 +46,9 @@ export default function Login({ onLogin }: LoginProps) {
       } else {
         setError(data.message || 'Error de acceso');
       }
-    } catch (err) {
-      setError('No se pudo conectar con el servidor');
+    } catch (err: any) {
+      console.error("[Login Connection Error]:", err);
+      setError(err?.message || 'No se pudo conectar con el servidor');
     } finally {
       setIsLoading(false);
     }
