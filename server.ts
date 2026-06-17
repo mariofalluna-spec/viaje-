@@ -37,6 +37,9 @@ function getGeminiClient() {
 // API Route for Nearby Place Recommendations
 // API Route for Database Connection Check
 app.get(["/api/db-check", "/db-check"], async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   try {
     const result = await supabaseClient.dbCheck();
     res.json({ 
@@ -136,6 +139,9 @@ app.post(["/api/signup", "/signup"], async (req, res) => {
 });
 
 app.get(["/api/state", "/state"], async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   try {
     console.log("[API] Fetching state from Supabase REST...");
     const state = await supabaseClient.getState();

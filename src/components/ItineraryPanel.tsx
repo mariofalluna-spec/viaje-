@@ -75,10 +75,32 @@ export default function ItineraryPanel({
     setLoadingNearby(true);
     setNearbyError('');
 
+    let lat = null;
+    let lon = null;
+
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-      });
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
+        });
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+      } catch (err) {
+        console.warn("Navegador GPS falló, intentando IP API...", err);
+      }
+
+      if (lat === null || lon === null) {
+        // Fallback to ipapi.co if abstract fails or browser gps fails
+        const ipRes = await fetch('https://ipapi.co/json/');
+        if (!ipRes.ok) throw new Error('IP fallback failed');
+        const ipData = await ipRes.json();
+        lat = ipData.latitude;
+        lon = ipData.longitude;
+      }
+
+      if (lat === null || lon === null) {
+        throw new Error('No se pudo determinar tu ubicación.');
+      }
       
       const response = await fetch('/api/recommendations', {
         method: 'POST',
@@ -87,8 +109,8 @@ export default function ItineraryPanel({
         },
         body: JSON.stringify({
           userLocation: {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            latitude: lat,
+            longitude: lon
           }
         }),
       });
