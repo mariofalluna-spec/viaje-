@@ -87,6 +87,38 @@ export function getCustomRingtoneData(): string | null {
   return localStorage.getItem("custom_ringtone");
 }
 
+// Warm up / unlock the audio element on mobile/Safari under a synchronous user gesture
+export function prepareAudio() {
+  const customData = getCustomRingtoneData();
+  const audioSrc = customData || defaultRingtoneUrl;
+  
+  try {
+    if (!currentCustomAudio) {
+      currentCustomAudio = new Audio(audioSrc);
+    }
+    if (currentCustomAudio.src !== audioSrc) {
+      currentCustomAudio.src = audioSrc;
+    }
+    
+    // Play slightly and immediately pause/mute to unlock the AudioContext / HTMLAudioElement
+    currentCustomAudio.volume = 0;
+    const playPromise = currentCustomAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        currentCustomAudio?.pause();
+        if (currentCustomAudio) {
+          currentCustomAudio.volume = 0.8;
+          currentCustomAudio.currentTime = 0;
+        }
+      }).catch((err) => {
+        console.log("Audio prepared:", err.message);
+      });
+    }
+  } catch (e) {
+    console.warn("Could not prepare audio ahead of time:", e);
+  }
+}
+
 // Play either custom uploaded ringtone, default Copacabana MP3, or the synthetic backup
 export function playRingtone() {
   const customData = getCustomRingtoneData();
