@@ -57,31 +57,47 @@ app.get(["/api/db-check", "/db-check"], async (req, res) => {
   }
 });
 
-// REAL LOGIN API
+// REAL LOGIN API WITH SUPABASE AUTH
 app.post(["/api/login", "/login"], async (req, res) => {
   const { username, password } = req.body;
   
   if (!username || !password) {
-    return res.status(400).json({ status: "error", message: "Usuario y clave son requeridos" });
+    return res.status(400).json({ status: "error", message: "Usuario o Correo y clave son requeridos" });
   }
 
   try {
-    console.log(`[AUTH] Login attempt for user: ${username}`);
-    const user = await supabaseClient.getUser(username);
+    console.log(`[AUTH] Login attempt for: ${username}`);
+    // First try using official Supabase GoTrue Auth
+    const data = await supabaseClient.loginWithSupabaseAuth(username, password);
+    const authUser = data.user;
+    const metadata = authUser?.user_metadata || {};
+    const finalUsername = metadata.username || authUser?.email?.split("@")[0] || "usuario";
 
-    if (user && user.password === password) {
-      console.log(`[AUTH] Login successful for: ${username}`);
-      res.json({ 
-        status: "ok", 
-        user: { id: user.id, name: user.name, username: user.username } 
-      });
-    } else {
-      console.log(`[AUTH] Login failed: Invalid credentials for ${username}`);
-      res.status(401).json({ status: "error", message: "Usuario o clave incorrectos" });
-    }
+    console.log(`[AUTH] Login successful via Supabase Auth for: ${finalUsername}`);
+    return res.json({ 
+      status: "ok", 
+      user: { 
+        id: authUser?.id, 
+        name: metadata.name || finalUsername, 
+        username: finalUsername 
+      } 
+    });
   } catch (error: any) {
-    console.error("[AUTH] Login error detailed:", error);
+    console.warn("[AUTH] Supabase Auth login failed, checking fallback legacy custom table:", error.message);
     
+    try {
+      const user = await supabaseClient.getUser(username);
+      if (user && user.password === password) {
+        console.log(`[AUTH] Fallback local table login successful for: ${username}`);
+        return res.json({ 
+          status: "ok", 
+          user: { id: user.id, name: user.name, username: user.username } 
+        });
+      }
+    } catch (fallbackError: any) {
+      console.error("[AUTH] Fallback check failed:", fallbackError.message);
+    }
+
     if (error.message?.includes("42501")) {
       return res.status(500).json({ 
         status: "error", 
@@ -89,9 +105,34 @@ app.post(["/api/login", "/login"], async (req, res) => {
       });
     }
     
-    res.status(500).json({ 
+    res.status(401).json({ 
       status: "error", 
-      message: "Error de conexión con la base de datos REST: " + error.message 
+      message: error.message || "Usuario o clave incorrectos" 
+    });
+  }
+});
+
+// REAL SIGNUP API VIA SUPABASE AUTH
+app.post(["/api/signup", "/signup"], async (req, res) => {
+  const { email, password, name, username } = req.body;
+  
+  if (!email || !password || !name || !username) {
+    return res.status(400).json({ status: "error", message: "Correo, clave, nombre y usuario son obligatorios" });
+  }
+
+  try {
+    console.log(`[AUTH] Registering user in Supabase Auth: ${email}`);
+    const data = await supabaseClient.signUpWithSupabaseAuth(email, password, name, username);
+    res.json({ 
+      status: "ok", 
+      message: "¡Usuario registrado exitosamente en Supabase Auth!",
+      user: { id: data.user?.id, name, username } 
+    });
+  } catch (error: any) {
+    console.error("[AUTH] Signup error:", error.message);
+    res.status(400).json({ 
+      status: "error", 
+      message: error.message || "Error al crear cuenta en Supabase" 
     });
   }
 });

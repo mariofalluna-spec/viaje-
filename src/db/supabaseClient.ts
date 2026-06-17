@@ -2,8 +2,17 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://nypwmtupwkdayjhqnuqy.supabase.co";
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cHdtdHVwd2tkYXlqaHFudXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NDE1MTEsImV4cCI6MjA5NzIxNzUxMX0.PlsYUt0nhjxvhrGZiukspxmiPsD6brxCO64K9O17CME";
+// Determine base Supabase URL: it must NOT end with trailing slashes or include /rest/v1 inside,
+// because our request() function automatically appends "/rest/v1/...".
+let rawUrl = (process.env.VITE_SUPABASE_URL || "https://hdyyunheifjheunlgcmr.supabase.co").trim();
+rawUrl = rawUrl.replace(/\/+$/, ""); // Remove trailing slashes
+if (rawUrl.endsWith("/rest/v1")) {
+  rawUrl = rawUrl.substring(0, rawUrl.length - 8);
+}
+rawUrl = rawUrl.replace(/\/+$/, ""); // Remove any trailing slashes again
+
+const supabaseUrl = rawUrl;
+const anonKey = (process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkeXl1bmhlaWZqaGV1bmxnY21yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NTYyMzksImV4cCI6MjA5NzIzMjIzOX0.xp5WhV4V-oX0o1Sr9sc7xQj_hg7kgwXaJen7TcANVdQ").trim();
 
 function toSnakeCase(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -37,6 +46,12 @@ function toCamelCase(obj: any): any {
 }
 
 async function request(path: string, options: RequestInit = {}) {
+  if (!supabaseUrl || !anonKey || supabaseUrl.trim() === "" || anonKey.trim() === "") {
+    throw new Error(
+      "Variables de entorno VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY faltantes. " +
+      "Por favor configúralas en la pestaña Settings -> Environment Variables tanto de AI Studio como de Vercel."
+    );
+  }
   const url = `${supabaseUrl}/rest/v1/${path}`;
   const response = await fetch(url, {
     ...options,
@@ -62,7 +77,10 @@ async function request(path: string, options: RequestInit = {}) {
     return null;
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) return null;
+  
+  return JSON.parse(text);
 }
 
 export const supabaseClient = {
@@ -83,6 +101,126 @@ export const supabaseClient = {
       return toCamelCase(results[0]);
     }
     return null;
+  },
+
+  async signUpWithSupabaseAuth(email: string, pass: string, name: string, username: string) {
+    if (!supabaseUrl || !anonKey) {
+      throw new Error("Credenciales de Supabase faltantes");
+    }
+    const response = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+      method: "POST",
+      headers: {
+        "apikey": anonKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password: pass,
+        options: {
+          data: {
+            name,
+            username
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error_description || err.message || `No se pudo registrar la cuenta: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Also sync details directly into the public.users table so that our DB state matches
+    try {
+      const dbUser = toSnakeCase({
+        id: data.user?.id || username,
+        username: username,
+        name: name
+      });
+      await request("users?on_conflict=id", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify([dbUser])
+      });
+    } catch (dbErr: any) {
+      console.warn("[SignUp DB sync bypassed]:", dbErr.message);
+    }
+
+    return data;
+  },
+
+  async loginWithSupabaseAuth(emailOrUsername: string, pass: string) {
+    if (!supabaseUrl || !anonKey) {
+      throw new Error("Credenciales de Supabase faltantes");
+    }
+
+    let email = emailOrUsername;
+    // If it's a username (no '@'), try to get the matching email from the users table.
+    // If they registered with email/pass directly, we can use it.
+    if (!emailOrUsername.includes("@")) {
+      const dbUser = await this.getUser(emailOrUsername);
+      if (dbUser && dbUser.id) {
+        // If DB user exists, but we only have username and legacy password inside DB,
+        // we can authenticate with legacy password if it matches.
+        if (dbUser.password === pass) {
+          return {
+            user: {
+              id: dbUser.id,
+              email: `${dbUser.username}@example.com`,
+              user_metadata: {
+                name: dbUser.name,
+                username: dbUser.username
+              }
+            }
+          };
+        }
+      }
+      // If we don't have email domain, fallback to username@como.com or similar,
+      // or try authenticating as email directly.
+    }
+
+    const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        "apikey": anonKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password: pass
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error_description || err.message || `Clave o correo inválido en Supabase Auth.`);
+    }
+
+    const data = await response.json();
+    
+    // Auto-sync authenticated user to public.users on login if not present
+    try {
+      const meta = data.user?.user_metadata || {};
+      const username = meta.username || data.user?.email?.split("@")[0] || "user";
+      const name = meta.name || username;
+      
+      const dbUser = toSnakeCase({
+        id: data.user?.id,
+        username,
+        name
+      });
+      await request("users?on_conflict=id", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify([dbUser])
+      });
+    } catch (dbErr: any) {
+      console.warn("[Login DB sync bypassed]:", dbErr.message);
+    }
+
+    return data;
   },
 
   async getState() {
@@ -130,82 +268,180 @@ export const supabaseClient = {
   },
 
   async syncState(payload: { friends?: any[]; days?: any[]; expenses?: any[]; config?: Record<string, string> }) {
-    console.log("[Supabase REST] Starting deep sync...");
+    console.log("[Supabase REST] Starting deep dynamic mirror sync...");
+
+    // 1. DELETE ORPHANS (Deleted friends, days, tourist places, and expenses)
+    // This is crucial, otherwise deleted/modified records remain in the database
+    // and reappear whenever the app reloads or polls!
+
+    // A. Delete obsolete expenses and splits first
+    try {
+      const dbExpenses = await request("expenses?select=id");
+      const payloadExpenseIds = new Set((payload.expenses || []).map(e => e.id));
+      for (const dbE of dbExpenses) {
+        if (!payloadExpenseIds.has(dbE.id)) {
+          console.log(`[Sync Cleanup] Deleting obsolete expense and splits: ${dbE.id}`);
+          await request(`expense_splits?expense_id=eq.${dbE.id}`, { method: "DELETE" }).catch(() => {});
+          await request(`expenses?id=eq.${dbE.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    } catch (e: any) {
+      console.warn("[Sync Cleanup] Warn checking/deleting extra expenses:", e.message);
+    }
+
+    // B. Delete obsolete tourist places
+    try {
+      const payloadPlaceIds = new Set();
+      if (payload.days) {
+        for (const d of payload.days) {
+          if (d.touristPlaces) {
+            for (const p of d.touristPlaces) {
+              payloadPlaceIds.add(p.id);
+            }
+          }
+        }
+      }
+      const dbPlaces = await request("tourist_places?select=id");
+      for (const dbP of dbPlaces) {
+        if (!payloadPlaceIds.has(dbP.id)) {
+          console.log(`[Sync Cleanup] Deleting obsolete tourist place: ${dbP.id}`);
+          await request(`tourist_places?id=eq.${dbP.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    } catch (e: any) {
+      console.warn("[Sync Cleanup] Warn checking/deleting extra tourist places:", e.message);
+    }
+
+    // C. Delete obsolete trip days
+    try {
+      const dbDays = await request("trip_days?select=id");
+      const payloadDayIds = new Set((payload.days || []).map(d => d.id));
+      for (const dbD of dbDays) {
+        if (!payloadDayIds.has(dbD.id)) {
+          console.log(`[Sync Cleanup] Deleting obsolete trip day: ${dbD.id}`);
+          await request(`tourist_places?trip_day_id=eq.${dbD.id}`, { method: "DELETE" }).catch(() => {});
+          await request(`expenses?trip_day_id=eq.${dbD.id}`, { method: "DELETE" }).catch(() => {});
+          await request(`trip_days?id=eq.${dbD.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    } catch (e: any) {
+      console.warn("[Sync Cleanup] Warn checking/deleting extra trip days:", e.message);
+    }
+
+    // D. Delete obsolete friends
+    try {
+      const dbFriends = await request("friends?select=id");
+      const payloadFriendIds = new Set((payload.friends || []).map(f => f.id));
+      for (const dbF of dbFriends) {
+        if (!payloadFriendIds.has(dbF.id)) {
+          console.log(`[Sync Cleanup] Deleting obsolete friend: ${dbF.id}`);
+          await request(`expense_splits?friend_id=eq.${dbF.id}`, { method: "DELETE" }).catch(() => {});
+          await request(`expenses?payer_id=eq.${dbF.id}`, { method: "DELETE" }).catch(() => {});
+          await request(`friends?id=eq.${dbF.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    } catch (e: any) {
+      console.warn("[Sync Cleanup] Warn checking/deleting extra friends:", e.message);
+    }
+
+    // 2. UPSERT ACTIVE RECORDS
 
     // Sync Friends
     if (payload.friends && payload.friends.length > 0) {
       const serializedFriends = payload.friends.map(f => toSnakeCase({
-        id: f.id,
-        name: f.name,
-        avatar_color: f.avatarColor,
-        avatar_url: f.avatarUrl,
-        avatar_emoji: f.avatarEmoji,
-        check_in_code: f.checkInCode
+        id: f.id || null,
+        user_id: f.userId || null,
+        name: f.name || null,
+        avatar_color: f.avatarColor || 'default', // avatar_color is not nullable in schema
+        avatar_url: f.avatarUrl || null,
+        avatar_emoji: f.avatarEmoji || null,
+        check_in_code: f.checkInCode || null
       }));
-      await request("friends", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates" },
-        body: JSON.stringify(serializedFriends)
-      });
+      console.log("[Supabase REST] Syncing friends, count:", serializedFriends.length);
+      try {
+        await request("friends?on_conflict=id", {
+          method: "POST",
+          headers: { 
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify(serializedFriends)
+        });
+      } catch (e: any) {
+        console.error("[Supabase REST] ERROR syncing friends:", e.message);
+        throw e;
+      }
     }
 
     // Sync Days & Tourist Places
     if (payload.days && payload.days.length > 0) {
       const serialDays = payload.days.map(d => toSnakeCase({
-        id: d.id,
-        day_number: d.dayNumber,
-        date: d.date
+        id: d.id || null,
+        day_number: d.dayNumber ?? null,
+        date: d.date || null
       }));
-      await request("trip_days", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates" },
-        body: JSON.stringify(serialDays)
-      });
-
-      // Extract and format tourist places
-      const allPlaces: any[] = [];
-      for (const d of payload.days) {
-        if (d.touristPlaces) {
-          for (const p of d.touristPlaces) {
-            allPlaces.push(toSnakeCase({
-              id: p.id,
-              trip_day_id: d.id,
-              name: p.name,
-              description: p.description,
-              time_of_day: p.timeOfDay,
-              estimated_cost: p.estimatedCost,
-              is_visited: p.isVisited,
-              location_name: p.locationName,
-              location_url: p.locationUrl
-            }));
-          }
-        }
+      console.log("[Supabase REST] Syncing trip_days, count:", serialDays.length);
+      try {
+        await request("trip_days?on_conflict=id", {
+          method: "POST",
+          headers: { 
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify(serialDays)
+        });
+      } catch (e: any) {
+        console.error("[Supabase REST] ERROR syncing trip_days:", e.message);
+        throw e;
       }
 
-      if (allPlaces.length > 0) {
-        await request("tourist_places", {
-          method: "POST",
-          headers: { "Prefer": "resolution=merge-duplicates" },
-          body: JSON.stringify(allPlaces)
-        });
+      // Extract and format tourist places day-by-day
+      for (const d of payload.days) {
+        if (d.touristPlaces && d.touristPlaces.length > 0) {
+          const placesForDay = d.touristPlaces.map(p => toSnakeCase({
+            id: p.id || null,
+            trip_day_id: d.id || null,
+            name: p.name || null,
+            description: p.description || null,
+            time_of_day: p.timeOfDay || null,
+            estimated_cost: p.estimatedCost ?? null,
+            is_visited: p.isVisited ?? null,
+            location_name: p.locationName || null,
+            location_url: p.locationUrl || null
+          }));
+          
+          console.log(`[Supabase REST] Syncing tourist_places for day ${d.id}, count: ${placesForDay.length}`);
+          try {
+            await request("tourist_places?on_conflict=id", {
+              method: "POST",
+              headers: { 
+                "Prefer": "resolution=merge-duplicates"
+              },
+              body: JSON.stringify(placesForDay)
+            });
+          } catch (e: any) {
+            console.error(`[Supabase REST] ERROR syncing tourist_places for day ${d.id}:`, e.message);
+            throw e; 
+          }
+        }
       }
     }
 
     // Sync Expenses and Splits
     if (payload.expenses && payload.expenses.length > 0) {
       const serialExpenses = payload.expenses.map(e => toSnakeCase({
-        id: e.id,
-        trip_day_id: e.tripDayId === "general" ? null : e.tripDayId,
-        description: e.description,
-        amount: e.amount,
-        payer_id: e.payerId,
-        category: e.category,
-        is_settlement: e.isSettlement,
-        notes: e.notes
+        id: e.id || null,
+        trip_day_id: e.tripDayId === "general" ? null : (e.tripDayId || null),
+        description: e.description || null,
+        amount: e.amount ?? null,
+        payer_id: e.payerId || null,
+        category: e.category || null,
+        is_settlement: e.isSettlement ?? null,
+        notes: e.notes || null
       }));
-      await request("expenses", {
+      await request("expenses?on_conflict=id", {
         method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates" },
+        headers: { 
+          "Prefer": "resolution=merge-duplicates"
+        },
         body: JSON.stringify(serialExpenses)
       });
 
@@ -240,7 +476,7 @@ export const supabaseClient = {
         value: String(value)
       }));
       if (serialConfig.length > 0) {
-        await request("config", {
+        await request("config?on_conflict=key", {
           method: "POST",
           headers: { "Prefer": "resolution=merge-duplicates" },
           body: JSON.stringify(serialConfig)
@@ -265,6 +501,9 @@ export const supabaseClient = {
   },
 
   async deleteFriend(id: string) {
+    // Delete associated splits and expenses where friend is payer first to satisfy foreign keys
+    await request(`expense_splits?friend_id=eq.${id}`, { method: "DELETE" }).catch(() => {});
+    await request(`expenses?payer_id=eq.${id}`, { method: "DELETE" }).catch(() => {});
     // Deletes the friend record
     await request(`friends?id=eq.${id}`, { method: "DELETE" });
     return { success: true };
