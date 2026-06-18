@@ -33,6 +33,7 @@ interface ItineraryPanelProps {
   onRemovePlace: (dayId: string, placeId: string) => void;
   currency: Currency;
   onUpdateDayDate?: (dayId: string, newDate: string) => void;
+  onImportItinerary?: (aiDays: any[], currencySuggestion: 'BRL' | 'USD') => void;
 }
 
 export default function ItineraryPanel({
@@ -44,6 +45,7 @@ export default function ItineraryPanel({
   onRemovePlace,
   currency,
   onUpdateDayDate,
+  onImportItinerary,
 }: ItineraryPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPlace, setEditingPlace] = useState<TouristPlace | null>(null);
@@ -67,6 +69,45 @@ export default function ItineraryPanel({
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyError, setNearbyError] = useState('');
   const [showNearby, setShowNearby] = useState(false);
+
+  // States for AI Itinerary Planner
+  const [aiPlannerPrompt, setAiPlannerPrompt] = useState('Dame itinerario que hacer desde las 8 am desde Sao Paulo y la costa de Brasil hasta llegar a Rio de Janeiro en 3 dias');
+  const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
+  const [generatedItinerary, setGeneratedItinerary] = useState<{
+    summary: string;
+    approximateTotalCost: number;
+    currency: 'BRL' | 'USD';
+    days: any[];
+  } | null>(null);
+  const [aiPlannerError, setAiPlannerError] = useState('');
+  const [showAiPlannerPanel, setShowAiPlannerPanel] = useState(false);
+
+  const handleGenerateItinerary = async () => {
+    if (!aiPlannerPrompt.trim()) return;
+    setIsGeneratingItinerary(true);
+    setAiPlannerError('');
+    setGeneratedItinerary(null);
+    try {
+      const res = await fetch('/api/ai-itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPlannerPrompt.trim() })
+      });
+      if (!res.ok) {
+        throw new Error('No se pudo generar el itinerario. Compruebe la conexión o sus llaves de API.');
+      }
+      const data = await res.json();
+      if (data.itinerary) {
+        setGeneratedItinerary(data.itinerary);
+      } else {
+        throw new Error('Respuesta inválida del servidor de IA o JSON mal formado.');
+      }
+    } catch (err: any) {
+      setAiPlannerError(err.message || 'Error desconocido al invocar la IA.');
+    } finally {
+      setIsGeneratingItinerary(false);
+    }
+  };
 
   const fetchNearbyDiscovery = async () => {
     setShowNearby(true);
@@ -236,7 +277,7 @@ export default function ItineraryPanel({
     return (
       <div className="bg-white rounded-3xl border border-slate-100 shadow-xs overflow-hidden flex flex-col h-full">
         {/* Header */}
-        <div className="p-6 border-b border-slate-50 bg-gradient-to-br from-teal-50/30 to-indigo-50/15">
+        <div className="p-6 border-b border-slate-50 bg-gradient-to-br from-teal-50/30 to-indigo-50/15 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-teal-100/60 flex items-center justify-center text-teal-600 shadow-3xs">
               <Compass className="w-6 h-6 text-teal-600" />
@@ -250,9 +291,228 @@ export default function ItineraryPanel({
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchNearbyDiscovery}
+              className="px-4 py-2.5 bg-sky-700 hover:bg-sky-800 text-white rounded-xl text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
+            >
+              <Compass className="w-4 h-4 text-white" />
+              <span>¿Qué hay cerca? 📍</span>
+            </button>
+
+            <button
+              onClick={() => setShowAiPlannerPanel(!showAiPlannerPanel)}
+              className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-xl text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>Armar mi recorrido ✨</span>
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-5 flex-1 overflow-y-auto">
+          {/* AI PLANNER MAIN PANEL */}
+          {showAiPlannerPanel && (
+            <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 border-2 border-dashed border-indigo-200 rounded-3xl p-5 space-y-4 animate-fade-in shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-indigo-600" />
+                  <h4 className="font-extrabold text-indigo-900 text-sm font-display">Planificador de Itinerarios Premium con IA (Gemini 3.5)</h4>
+                </div>
+                <button 
+                  onClick={() => setShowAiPlannerPanel(false)}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                Escribe tu consulta o instrucción (por ejemplo: puntos de partida, paradas preferidas por la costa, transporte y horas) y nuestra Inteligencia Artificial especializada diseñará la ruta por ti e identificará los costos aproximados de cada visita.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">¿Cuál es tu idea de viaje o recorrido?</label>
+                <textarea
+                  value={aiPlannerPrompt}
+                  onChange={(e) => setAiPlannerPrompt(e.target.value)}
+                  rows={3}
+                  className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-1 focus:ring-indigo-500 bg-white"
+                  placeholder='Por ejemplo: "DAME ITINEARIO QUE HACER DESDE LAS 8 AM DESDE SAO PAULO Y LA COSTA DE BRASIL HASTA LLEGAR A RIO DE JANEIRO EN 3 DIAS"'
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiPlannerPrompt('Dame itinerario que hacer desde las 8 am desde Sao Paulo y la costa de Brasil hasta llegar a Rio de Janeiro en 3 dias')}
+                  className="px-3 py-1.5 bg-white border border-slate-150 hover:bg-slate-50 text-[10px] text-slate-500 font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  Ejemplo Sugerido 🗺️
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateItinerary}
+                  disabled={isGeneratingItinerary || !aiPlannerPrompt.trim()}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isGeneratingItinerary ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Armando Ruta con Gemini...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-yellow-300" />
+                      <span>Armar Recorrido con IA</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {aiPlannerError && (
+                <div className="p-3 bg-rose-50 border border-rose-100 text-xs text-rose-600 rounded-xl font-bold">
+                  ⚠️ {aiPlannerError}
+                </div>
+              )}
+
+              {generatedItinerary && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 mt-2 space-y-4 shadow-3xs max-h-[420px] overflow-y-auto">
+                  <div className="flex items-start justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+                    <div className="max-w-[70%]">
+                      <span className="text-[9px] bg-indigo-100 text-indigo-800 font-black px-2 py-0.5 rounded-md uppercase tracking-wider block w-fit">
+                        ✨ RECORRIDO PROPUESTO POR GEMINI IA
+                      </span>
+                      <h5 className="text-slate-800 text-xs font-bold mt-1.5 leading-relaxed italic">"{generatedItinerary.summary}"</h5>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase">COSTO TOTAL ESTIMADO</span>
+                      <span className="text-sm font-black text-emerald-600 font-display">
+                        {generatedItinerary.currency === 'USD' ? '$' : 'R$'} {generatedItinerary.approximateTotalCost}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {generatedItinerary.days?.map((day: any, dIdx: number) => (
+                      <div key={dIdx} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 space-y-2">
+                        <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider block">
+                          Día {day.dayNumber} {day.dateOffset !== undefined ? `(+${day.dateOffset} día)` : ''}
+                        </span>
+                        <div className="space-y-3 pl-2 border-l-2 border-indigo-200">
+                          {day.touristPlaces?.map((p: any, pIdx: number) => (
+                            <div key={pIdx} className="text-xs flex items-start justify-between gap-3">
+                              <div>
+                                <span className="font-extrabold text-slate-700">[{p.timeOfDay}] {p.name}</span>
+                                <p className="text-[11px] text-slate-500 font-normal mt-0.5">{p.description}</p>
+                                {p.locationName && (
+                                  <span className="text-[9px] text-teal-650 font-bold bg-teal-50 px-1.5 py-0.5 rounded mt-1 inline-block border border-teal-100/50">
+                                    📍 Parada: {p.locationName}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                {generatedItinerary.currency === 'USD' ? '$' : 'R$'} {p.estimatedCost}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {onImportItinerary && (
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onImportItinerary(generatedItinerary.days, generatedItinerary.currency || 'BRL');
+                          setShowAiPlannerPanel(false);
+                        }}
+                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Aplicar Itinerario e Importar Todo al Viaje ✈️</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Global GPS Nearby Discovery Section for Consolidated View */}
+          {showNearby && (
+            <div className="bg-indigo-50/40 rounded-2xl border border-indigo-100 p-4 space-y-3 animate-fade-in relative">
+              <button 
+                onClick={() => setShowNearby(false)}
+                className="absolute top-3 right-3 text-indigo-400 hover:text-indigo-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              
+              <div className="flex items-center gap-2">
+                <Compass className="w-5 h-5 text-indigo-600" />
+                <h4 className="font-bold text-indigo-900 text-xs uppercase tracking-wider">Descubrimiento cercano (GPS Real)</h4>
+              </div>
+
+              {loadingNearby ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[10px] text-indigo-600 font-bold">Consultando a la IA sobre tu ubicación actual...</span>
+                </div>
+              ) : nearbyError ? (
+                <div className="p-3 text-[10px] text-rose-600 bg-rose-50 rounded-xl border border-rose-100 flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>{nearbyError}</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {nearbyRecommendations.map((rec, idx) => (
+                    <div key={idx} className="bg-white border border-indigo-100 rounded-xl p-3 shadow-3xs flex flex-col justify-between group">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-black text-indigo-900">{rec.name}</span>
+                          <span className="text-[8px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 uppercase font-black">{rec.type}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{rec.description}</p>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9px] font-bold text-indigo-600 hover:underline"
+                        >
+                          Ver Mapa 🌐
+                        </a>
+                        <button
+                          onClick={() => {
+                            const targetDayId = selectedDay?.id || days[0]?.id;
+                            if (targetDayId) {
+                              onAddPlace(targetDayId, {
+                                name: rec.name,
+                                description: rec.description,
+                                timeOfDay: 'Sugerido por IA',
+                                estimatedCost: 0,
+                                locationName: rec.name,
+                                locationUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.name)}`
+                              });
+                            }
+                          }}
+                          className="p-1 px-2 bg-indigo-50 text-indigo-700 rounded-lg text-[9px] font-bold hover:bg-indigo-100 transition-colors"
+                        >
+                          + Itinerario
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quick Metrics */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-slate-50/60 border border-slate-100 rounded-2xl p-3 flex flex-col justify-between">
@@ -485,11 +745,19 @@ export default function ItineraryPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={() => setShowAiPlannerPanel(!showAiPlannerPanel)}
+            className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer uppercase tracking-wider"
+          >
+            <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            <span>Armar mi recorrido</span>
+          </button>
+
           <button
             id={`btn-add-place-day-${selectedDay.id}`}
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer uppercase tracking-wider"
           >
             <Plus className="w-3 h-3" />
             <span>Lugar</span>
@@ -497,15 +765,145 @@ export default function ItineraryPanel({
 
           <button
             onClick={fetchNearbyDiscovery}
-            className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1 bg-sky-700 hover:bg-sky-800 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer uppercase tracking-wider"
           >
-            <Sparkles className="w-3 h-3" />
+            <Compass className="w-3 h-3 text-white" />
             <span>¿Qué hay cerca?</span>
           </button>
         </div>
       </div>
 
       <div className="p-5 flex-1 overflow-y-auto space-y-4">
+        {/* AI PLANNER DYNAMIC PANEL */}
+        {showAiPlannerPanel && (
+          <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 border-2 border-dashed border-indigo-200 rounded-3xl p-5 space-y-4 animate-fade-in shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <h4 className="font-extrabold text-indigo-900 text-sm font-display">Planificador de Itinerarios Premium con IA (Gemini 3.5)</h4>
+              </div>
+              <button 
+                onClick={() => setShowAiPlannerPanel(false)}
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+              Escribe tu consulta o instrucción (por ejemplo: puntos de partida, paradas preferidas por la costa, transporte y horas) y nuestra Inteligencia Artificial especializada diseñará la ruta por ti e identificará los costos aproximados de cada visita.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">¿Cuál es tu idea de viaje o recorrido?</label>
+              <textarea
+                value={aiPlannerPrompt}
+                onChange={(e) => setAiPlannerPrompt(e.target.value)}
+                rows={3}
+                className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-1 focus:ring-indigo-500 bg-white"
+                placeholder='Por ejemplo: "DAME ITINEARIO QUE HACER DESDE LAS 8 AM DESDE SAO PAULO Y LA COSTA DE BRASIL HASTA LLEGAR A RIO DE JANEIRO EN 3 DIAS"'
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAiPlannerPrompt('Dame itinerario que hacer desde las 8 am desde Sao Paulo y la costa de Brasil hasta llegar a Rio de Janeiro en 3 dias')}
+                className="px-3 py-1.5 bg-white border border-slate-150 hover:bg-slate-50 text-[10px] text-slate-500 font-bold rounded-lg transition-all cursor-pointer"
+              >
+                Ejemplo Sugerido 🗺️
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateItinerary}
+                disabled={isGeneratingItinerary || !aiPlannerPrompt.trim()}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                {isGeneratingItinerary ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Armando Ruta con Gemini...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-yellow-300" />
+                    <span>Armar Recorrido con IA</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {aiPlannerError && (
+              <div className="p-3 bg-rose-50 border border-rose-100 text-xs text-rose-600 rounded-xl font-bold">
+                ⚠️ {aiPlannerError}
+              </div>
+            )}
+
+            {generatedItinerary && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 mt-2 space-y-4 shadow-3xs max-h-[420px] overflow-y-auto">
+                <div className="flex items-start justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+                  <div className="max-w-[70%]">
+                    <span className="text-[9px] bg-indigo-100 text-indigo-800 font-black px-2 py-0.5 rounded-md uppercase tracking-wider block w-fit">
+                      ✨ RECORRIDO PROPUESTO POR GEMINI IA
+                    </span>
+                    <h5 className="text-slate-800 text-xs font-bold mt-1.5 leading-relaxed italic">"{generatedItinerary.summary}"</h5>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase">COSTO TOTAL ESTIMADO</span>
+                    <span className="text-sm font-black text-emerald-600 font-display">
+                      {generatedItinerary.currency === 'USD' ? '$' : 'R$'} {generatedItinerary.approximateTotalCost}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {generatedItinerary.days?.map((day: any, dIdx: number) => (
+                    <div key={dIdx} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 space-y-2">
+                      <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider block">
+                        Día {day.dayNumber} {day.dateOffset !== undefined ? `(+${day.dateOffset} día)` : ''}
+                      </span>
+                      <div className="space-y-3 pl-2 border-l-2 border-indigo-200">
+                        {day.touristPlaces?.map((p: any, pIdx: number) => (
+                          <div key={pIdx} className="text-xs flex items-start justify-between gap-3">
+                            <div>
+                                <span className="font-extrabold text-slate-700">[{p.timeOfDay}] {p.name}</span>
+                                <p className="text-[11px] text-slate-500 font-normal mt-0.5">{p.description}</p>
+                                {p.locationName && (
+                                  <span className="text-[9px] text-teal-650 font-bold bg-teal-50 px-1.5 py-0.5 rounded mt-1 inline-block border border-teal-100/50">
+                                    📍 Parada: {p.locationName}
+                                  </span>
+                                )}
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
+                              {generatedItinerary.currency === 'USD' ? '$' : 'R$'} {p.estimatedCost}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {onImportItinerary && (
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onImportItinerary(generatedItinerary.days, generatedItinerary.currency || 'BRL');
+                        setShowAiPlannerPanel(false);
+                      }}
+                      className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Aplicar Itinerario e Importar Todo al Viaje ✈️</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Global GPS Nearby Discovery Section */}
         {showNearby && (
           <div className="bg-indigo-50/40 rounded-2xl border border-indigo-100 p-4 space-y-3 animate-fade-in relative">

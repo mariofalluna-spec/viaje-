@@ -228,7 +228,10 @@ export function getLocalSavedState() {
     const savedCurrency = localStorage.getItem('travel_currency') as Currency | null;
     const savedBudgetLimit = localStorage.getItem('travel_budget_limit');
 
-    let friends = savedFriends ? JSON.parse(savedFriends) : INITIAL_FRIENDS;
+    let friends: Friend[] = savedFriends ? JSON.parse(savedFriends) : INITIAL_FRIENDS;
+
+    // Deduplicate by ID
+    friends = Array.from(new Map(friends.map(f => [f.id, f])).values());
 
     // Migrate: Ensure friends have correct avatars from INITIAL_FRIENDS and assign player avatars if needed
     friends = friends.map((f: Friend, index: number) => {
@@ -244,10 +247,16 @@ export function getLocalSavedState() {
       return { ...f, avatarUrl: BRAZIL_PLAYERS[index % BRAZIL_PLAYERS.length].url };
     });
 
+    const parsedDays: TripDay[] = savedDays ? JSON.parse(savedDays) : INITIAL_DAYS;
+    const parsedExpenses: Expense[] = savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES;
+
+    const uniqueDays = Array.from(new Map(parsedDays.map(d => [d.id, d])).values());
+    const uniqueExpenses = Array.from(new Map(parsedExpenses.map(e => [e.id, e])).values());
+
     return {
       friends: friends,
-      days: savedDays ? JSON.parse(savedDays) : INITIAL_DAYS,
-      expenses: savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES,
+      days: uniqueDays,
+      expenses: uniqueExpenses,
       currentUserId: cachedUser || 'u_1',
       currency: savedCurrency || 'BRL',
       budgetLimit: savedBudgetLimit ? parseFloat(savedBudgetLimit) : 1200,

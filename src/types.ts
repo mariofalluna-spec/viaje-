@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type Currency = 'BRL';
+export type Currency = 'BRL' | 'USD';
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   BRL: 'R$',
+  USD: '$',
 };
 
 export interface TravelDocument {

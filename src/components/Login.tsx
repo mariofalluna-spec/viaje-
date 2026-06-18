@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plane, Lock, User, Sparkles, Mail, UserPlus, FileText } from 'lucide-react';
+import { Sparkles, MapPin } from 'lucide-react';
 import { motion } from 'motion/react';
-import christRedeemerImg from '../assets/images/christ_the_redeemer_1781656383349.jpg';
+import rioImg from '../assets/images/rio_de_janeiro_elegant_1781704231352.jpg';
 import { playRingtone, prepareAudio } from '../utils/audioSynth';
 
 interface LoginProps {
@@ -15,48 +15,42 @@ export default function Login({ onLogin }: LoginProps) {
     e.preventDefault();
     setIsLoading(true);
 
-    prepareAudio();
-    playRingtone();
-    
-    // Simulate slight delay for effect
-    setTimeout(() => {
-      onLogin('viajero', '');
-    }, 800);
+    onLogin('viajero', '');
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black overflow-y-auto py-10 select-none">
-      {/* Background with Rio de Janeiro Christ Redentor cover */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950 overflow-y-auto py-10 select-none font-sans">
+      {/* Background with Rio de Janeiro cover */}
       <motion.div 
-        initial={{ scale: 1.1 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 25, repeat: Infinity, repeatType: "reverse", ease: "linear" }}
-        className="absolute inset-0 z-0 bg-cover bg-center"
+        initial={{ scale: 1 }}
+        animate={{ scale: 1.15 }}
+        transition={{ duration: 30, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+        className="absolute inset-0 z-0 bg-cover bg-center opacity-70"
         style={{ 
-          backgroundImage: `url(${christRedeemerImg})`,
-          filter: 'brightness(0.4) contrast(1.15) saturate(1.1)'
+          backgroundImage: `url(${rioImg})`,
+          filter: 'brightness(0.6) contrast(1.1) saturate(0.9)'
         }}
       />
       
-      <div className="absolute inset-0 bg-gradient-to-b from-blue-900/35 via-transparent to-black/90 z-1" />
+      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent z-1" />
 
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-md p-8 mx-4 my-auto bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-2xl flex flex-col justify-between"
+        transition={{ duration: 1, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-sm p-10 mx-5 my-auto bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex flex-col justify-between"
       >
         <div>
-          {/* Header section with Rio vibes */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="p-4 bg-yellow-400 text-emerald-950 rounded-2xl shadow-lg shadow-yellow-400/30 mb-3 relative group overflow-hidden">
-              <Plane className="w-8 h-8 text-emerald-950 group-hover:translate-x-1 transition-transform" />
-              <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+          {/* Header section with elegant Rio vibes */}
+          <div className="flex flex-col items-center mb-10">
+            <div className="p-3 bg-zinc-800/50 text-emerald-400 rounded-full border border-white/10 mb-6 group">
+              <MapPin className="w-6 h-6 group-hover:scale-110 transition-transform duration-500" />
             </div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight text-center">
-              VIAJE A BRASIL
+            <h1 className="text-2xl font-light text-zinc-100 tracking-[0.2em] text-center uppercase">
+              Río de Janeiro
             </h1>
-            <p className="text-emerald-300/90 text-sm font-semibold mt-1">
-              Itinerario Familiar de Río 🌴
+            <p className="text-emerald-400 text-xs font-semibold tracking-widest mt-3 uppercase">
+              itinerario
             </p>
           </div>
 
@@ -64,17 +58,17 @@ export default function Login({ onLogin }: LoginProps) {
             <button 
               type="submit"
               disabled={isLoading}
-              className={`w-full ${isLoading ? 'bg-emerald-600 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400'} text-white font-extrabold py-5 rounded-2xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 group mt-6 active:scale-[0.98]`}
+              className={`w-full ${isLoading ? 'bg-zinc-700 cursor-not-allowed' : 'bg-emerald-600/90 hover:bg-emerald-500 hover:shadow-emerald-500/20'} text-zinc-50 text-sm font-semibold tracking-widest py-4 rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-3 group mt-8`}
             >
-              <span className="text-lg">{isLoading ? 'INGRESANDO...' : 'INGRESAR AL VIAJE'}</span>
-              {!isLoading && <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform text-yellow-300" />}
+              <span>{isLoading ? 'ACCEDIENDO...' : 'INGRESAR'}</span>
+              {!isLoading && <Sparkles className="w-4 h-4 text-emerald-200 group-hover:animate-pulse" />}
             </button>
           </form>
         </div>
 
-        <div className="mt-8 text-center select-none">
-          <p className="text-[10px] text-white/40 font-mono uppercase tracking-widest">
-            Autenticación Simplificada
+        <div className="mt-10 text-center select-none opacity-50">
+          <p className="text-[9px] text-zinc-400 font-sans uppercase tracking-[0.3em]">
+            Experiencia Exclusiva
           </p>
         </div>
       </motion.div>

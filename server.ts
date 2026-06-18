@@ -8,7 +8,7 @@ import { supabaseClient } from "./src/db/supabaseClient.ts";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json());
 
@@ -253,7 +253,7 @@ Debes devolver obligatoriamente los resultados estructurados en formato JSON vá
 No incluyas introducciones dramáticas, ni explicaciones adicionales fuera del array, ni marcas de bloque de código markdown de tipo \`\`\`json. Devuelve única y directamente la cadena del JSON array.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json"
@@ -267,6 +267,67 @@ No incluyas introducciones dramáticas, ni explicaciones adicionales fuera del a
   } catch (error: any) {
     console.error("Error al llamar a Gemini:", error);
     res.status(500).json({ error: error.message || "Fallo interno al procesar las sugerencias con la IA." });
+  }
+});
+
+// REAL AI ITINERARY GENERATOR VIA GEMINI
+app.post(["/api/ai-itinerary", "/ai-itinerary"], async (req, res) => {
+  try {
+    const { prompt: userPrompt } = req.body;
+    if (!userPrompt) {
+      return res.status(400).json({ error: "Se requiere un texto de instrucción para el itinerario." });
+    }
+
+    const ai = getGeminiClient();
+
+    const systemPrompt = `Actúa como un planificador de viajes premium del mundo. Diseña un itinerario completo que se ajuste exactamente o de forma muy cercana a la descripción del usuario.
+Tu respuesta debe ser un objeto JSON estructurado que incluya cada día, los lugares turísticos específicos con sus horas aproximadas, descripciones y costos aproximados en la moneda adecuada.
+
+EJEMPLO PUESTO POR EL USUARIO:
+"DAME ITINEARIO QUE HACER DESDE LAS 8 AM DESDE SAO PAULO Y LA COSTA DE BRASIL HASTA LLEGAR A RIO DE JANEIRO EN 3 DIAS"
+
+La estructura JSON devuelta debe cumplir exactamente con lo siguiente:
+{
+  "summary": "Breve resumen ejecutivo sobre cómo se estructuró este viaje e ideas principales (máximo 60 palabras).",
+  "approximateTotalCost": 1200, // número sumando los costos estimados del viaje
+  "currency": "BRL", // Moneda sugerida: "BRL" o "USD" 
+  "days": [
+    {
+      "dayNumber": 1, // número secuencial del día (1, 2, 3...)
+      "dateOffset": 0, // cuántos días después de la fecha de inicio del viaje (el día 1 tiene offset 0, el día 2 offset 1, etc.)
+      "touristPlaces": [
+        {
+          "name": "Nombre detallado y vibrante del lugar o parada",
+          "description": "Qué hacer detalladamente en esta hora de parada (máximo 25 palabras).",
+          "timeOfDay": "08:00", // Formato HH:MM preferido
+          "estimatedCost": 150, // Costo estimado aproximado en la moneda del viaje (un número idealizado para esta parada, p. ej., comida, boletos o pasaje)
+          "locationName": "Nombre físico del lugar o ciudad de parada para mapeo posterior en GPS"
+        }
+      ]
+    }
+  ]
+}
+
+Ten en cuenta que el viaje puede pasar de ciudad a ciudad si el usuario lo indica (por ejemplo, saliendo de Sao Paulo, parando en la costa como Ubatuba, Paraty o Angra, y llegando a Río de Janeiro). Genera paradas muy realistas con horas exactas e itinerarios lógicos.
+
+No incluyas explicaciones adicionales, ni introducciones, ni bloques markdown de tipo \`\`\`json. Devuelve estrictamente un objeto JSON que se pueda parsear directo.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        responseMimeType: "application/json"
+      }
+    });
+
+    const textOutput = response.text || "{}";
+    const itinerary = JSON.parse(textOutput.trim());
+
+    res.json({ itinerary });
+  } catch (error: any) {
+    console.error("Error al generar itinerario con Gemini:", error);
+    res.status(500).json({ error: error.message || "Fallo interno al armar el itinerario con la IA." });
   }
 });
 

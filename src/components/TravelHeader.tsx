@@ -8,7 +8,7 @@ import { Friend, Expense, Currency, CURRENCY_SYMBOLS, SyncStatus } from '../type
 import { Compass, Users, Plane, Calendar, Wallet, UserPlus, Trash2, X, Plus, Sparkles, Check, Music, Pencil, CloudCheck, CloudOff, RefreshCw, AlertCircle, LogOut, Pause } from 'lucide-react';
 import Avatar from './Avatar';
 import christRedeemerImg from '../assets/images/christ_the_redeemer_1781656383349.jpg';
-import { playRingtone, isRingtonePlaying, toggleRingtone } from '../utils/audioSynth';
+import { playRingtone, isRingtonePlaying, toggleRingtone, pauseRingtone } from '../utils/audioSynth';
 
 interface TravelHeaderProps {
   friends: Friend[];
@@ -59,15 +59,6 @@ export default function TravelHeader({
   const [newFriendName, setNewFriendName] = useState('');
   const [selectedColor, setSelectedColor] = useState('bg-teal-500');
   const [showSpotify, setShowSpotify] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // Poll for playing state to keep UI in sync
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIsPlaying(isRingtonePlaying());
-    }, 250);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleCreateFriend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,21 +81,8 @@ export default function TravelHeader({
       {/* Semi-transparent blur overlay for excellent text contrast */}
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] z-0 pointer-events-none" />
 
-      {/* Global Spotify & Ringtone Control - Absolute Corner */}
+      {/* Global Spotify Control - Absolute Corner */}
       <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] flex gap-2.5">
-        {/* Ringtone Trigger Sound Button */}
-        <button
-          onClick={() => toggleRingtone()}
-          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center bg-yellow-400/20 border-2 border-yellow-400/30 hover:border-yellow-350 text-yellow-300 hover:bg-yellow-400/80 hover:text-emerald-950 hover:scale-110 transition-all shadow-lg backdrop-blur-xl group cursor-pointer"
-          title={isPlaying ? "Pausar Ringtone de Río 🔔" : "Sonar Ringtone de Río 🔔"}
-        >
-          {isPlaying ? (
-            <Pause className="w-5 h-5 md:w-6 h-6 animate-pulse" />
-          ) : (
-            <Music className="w-5 h-5 md:w-6 h-6 group-hover:rotate-12 transition-transform" />
-          )}
-        </button>
-
         {onLogout && (
           <button
             onClick={onLogout}
@@ -128,40 +106,41 @@ export default function TravelHeader({
             {showSpotify && <div className="absolute inset-0 bg-white/20 rounded-full animate-ping" />}
           </button>
 
-          {showSpotify && (
-            <div className="absolute right-0 top-full mt-4 w-72 md:w-80 bg-[#121212]/95 backdrop-blur-3xl border border-[#1DB954]/30 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] p-4 z-50 animate-spring-up overflow-hidden">
-              <div className="flex items-center justify-between mb-4 px-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 md:w-8 md:h-8 bg-[#1DB954] rounded-full flex items-center justify-center">
-                    <SpotifyIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                  </div>
-                  <span className="text-[10px] md:text-[11px] font-black text-white uppercase tracking-widest font-sans">
-                    Vibra Brasil 🇧🇷
-                  </span>
+          <div className={`absolute right-0 top-full mt-4 w-72 md:w-80 bg-[#121212]/95 backdrop-blur-3xl border border-[#1DB954]/30 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] p-4 z-50 transition-all duration-300 origin-top-right ${
+            showSpotify 
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' 
+              : 'opacity-0 scale-90 -translate-y-2 pointer-events-none absolute w-[1px] h-[1px] overflow-hidden'
+          }`}>
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-[#1DB954] rounded-full flex items-center justify-center">
+                  <SpotifyIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
-                <button onClick={() => setShowSpotify(false)} className="bg-white/10 p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all">
-                  <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
+                <span className="text-[10px] md:text-[11px] font-black text-white uppercase tracking-widest font-sans">
+                  Vibra Brasil 🇧🇷
+                </span>
               </div>
-              <div className="bg-black/40 rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
-                <iframe 
-                  style={{ borderRadius: '16px' }} 
-                  src="https://open.spotify.com/embed/playlist/3TqICupAgz1dyriD5fPemD?utm_source=generator&theme=0" 
-                  width="100%" 
-                  height="160" 
-                  frameBorder="0" 
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                  loading="lazy"
-                ></iframe>
-              </div>
-              <div className="mt-4 flex flex-col items-center gap-1">
-                <p className="text-[9px] text-[#1DB954] font-black italic tracking-tight">
-                  "Onde as palavras falham, a música fala"
-                </p>
-                <div className="w-12 h-1 bg-[#1DB954]/30 rounded-full" />
-              </div>
+              <button onClick={() => setShowSpotify(false)} className="bg-white/10 p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all">
+                <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
             </div>
-          )}
+            <div className="bg-black/40 rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
+              <iframe 
+                style={{ borderRadius: '16px' }} 
+                src="https://open.spotify.com/embed/album/0s0ROJiaa9cdvK3llVrRus?utm_source=generator&theme=0&autoplay=1" 
+                width="100%" 
+                height="160" 
+                frameBorder="0" 
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+              ></iframe>
+            </div>
+            <div className="mt-4 flex flex-col items-center gap-1">
+              <p className="text-[9px] text-[#1DB954] font-black italic tracking-tight">
+                "Onde as palavras falham, a música fala"
+              </p>
+              <div className="w-12 h-1 bg-[#1DB954]/30 rounded-full" />
+            </div>
+          </div>
         </div>
       </div>
 

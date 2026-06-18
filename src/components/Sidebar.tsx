@@ -30,6 +30,7 @@ interface SidebarProps {
   selectedDayId: string; // "all" or specific DayDay ID
   onSelectDay: (id: string) => void;
   onAddDay: (dateString: string) => void;
+  onDeleteDay?: (id: string) => void;
   onAddFriend: (name: string, emoji: string, color?: string, avatarUrl?: string) => void;
   onEditFriend: (id: string, name: string, emoji: string, color?: string, avatarUrl?: string) => void;
   onDeleteFriend?: (id: string) => void;
@@ -56,6 +57,7 @@ export default function Sidebar({
   selectedDayId,
   onSelectDay,
   onAddDay,
+  onDeleteDay,
   onAddFriend,
   onEditFriend,
   onDeleteFriend,
@@ -79,6 +81,7 @@ export default function Sidebar({
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [dayToDelete, setDayToDelete] = useState<string | null>(null);
 
   // New Day forms states
   const [newDayDate, setNewDayDate] = useState('');
@@ -180,17 +183,19 @@ export default function Sidebar({
                 const visitedCount = day.touristPlaces.filter(p => p.isVisited).length;
                 
                 return (
-                  <button
+                  <div
                     key={day.id}
                     id={`day-nav-${day.id}`}
-                    onClick={() => onSelectDay(day.id)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200 border ${
+                    className={`group w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200 border ${
                       isActive
                         ? 'bg-teal-50/50 border-teal-200 text-teal-800 font-semibold shadow-xs translate-x-1.5'
                         : 'text-slate-600 hover:bg-slate-50 border-transparent hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div 
+                      className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                      onClick={() => onSelectDay(day.id)}
+                    >
                       <div className={`w-8 h-8 rounded-lg flex flex-col items-center justify-center font-display shrink-0 ${
                         isActive ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500'
                       }`}>
@@ -232,16 +237,32 @@ export default function Sidebar({
                       </div>
                     </div>
 
-                    {placeCount > 0 && (
-                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
-                        visitedCount === placeCount 
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                          : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {visitedCount}/{placeCount}
-                      </span>
-                    )}
-                  </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {placeCount > 0 && (
+                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                          visitedCount === placeCount 
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {visitedCount}/{placeCount}
+                        </span>
+                      )}
+                      {onDeleteDay && (
+                        <button
+                          type="button"
+                          title="Eliminar itinerario"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDayToDelete(day.id);
+                          }}
+                          className={`p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer z-10 relative opacity-0 group-hover:opacity-100 ${isActive ? 'opacity-100 text-teal-600 hover:text-rose-600 hover:bg-rose-50' : ''}`}
+                        >
+                          <Trash2 className="w-4 h-4 pointer-events-none" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 );
               })
             )}
@@ -699,6 +720,60 @@ export default function Sidebar({
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Day Confirmation Modal */}
+      <AnimatePresence>
+        {dayToDelete && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setDayToDelete(null)}
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Eliminar Itinerario</h3>
+                <p className="text-sm text-slate-600 leading-relaxed font-semibold">
+                  se borrara toda la informacion
+                </p>
+              </div>
+
+              <div className="p-5 border-t border-slate-50 bg-slate-50 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDayToDelete(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 bg-slate-100 rounded-xl transition-all cursor-pointer"
+                >
+                  cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onDeleteDay && dayToDelete) {
+                      onDeleteDay(dayToDelete);
+                    }
+                    setDayToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md cursor-pointer transition-all"
+                >
+                  eliminar
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
