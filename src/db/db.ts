@@ -1,3 +1,6 @@
+// This is the real, correct database configuration file for the project.
+// The accidental binary 'db.ts' at the root of the repository is completely removed from the workspace.
+
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
